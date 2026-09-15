@@ -20,13 +20,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download latest GeoNames dump
-        # cities5000.zip = all populated places with population >= 5000.
-        # Swap the filename for cities15000.zip / cities1000.zip /
-        # cities500.zip if you want fewer/more cities (smaller/larger file).
+        # cities500.zip = all populated places with population >= 500 (plus
+        # every admin capital regardless of population). This is GeoNames'
+        # largest city-level dump — uncompressed it runs well over 100MB, so
+        # expect this step and the gzip step to take noticeably longer than
+        # smaller thresholds, and data.txt.gz itself will be a bigger file
+        # for a first-time visitor's browser to download.
         run: |
-          curl -sSL -o dump.zip "https://download.geonames.org/export/dump/cities5000.zip"
+          curl -sSL -o dump.zip "https://download.geonames.org/export/dump/cities500.zip"
           unzip -o dump.zip -d dump
-          mv dump/cities5000.txt raw_data.txt
+          mv dump/cities500.txt raw_data.txt
 
       - name: Compress to data.txt.gz
         run: gzip -9 -c raw_data.txt > data.txt.gz.new
