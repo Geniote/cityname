@@ -120,8 +120,10 @@ body.night-mode #nightCanvas{display:block;mix-blend-mode:screen}
 body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
 /* Mobile-only control to hide/show the below-map cities panel so the map can
    take up most of the screen. Hidden on desktop (the panel always shows
-   there); only revealed inside the mobile media query below. */
-#panelToggleBtn{display:none;position:absolute;top:10px;right:10px;font-size:12px;font-weight:600;color:var(--text2);background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:7px;padding:6px 11px;cursor:pointer;z-index:6}
+   there); only revealed and positioned inside the mobile media query below.
+   (Not placed near the top of the map — that area sits underneath the
+   session/status bars, which render above the map and would hide it.) */
+#panelToggleBtn{display:none;position:absolute;font-size:12px;font-weight:600;color:var(--text2);background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:7px;padding:6px 11px;cursor:pointer;z-index:6}
 body.night-mode #panelToggleBtn{background:rgba(20,24,32,.85)}
 #mapColorsPopover{position:absolute;bottom:66px;left:10px;z-index:7;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18);width:190px;display:none}
 #mapColorsPopover.open{display:block}
@@ -303,10 +305,11 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
   #panel{order:2;width:100%;height:auto;max-height:none;flex-shrink:0;border-left:none;border-top:2px solid #2b4c7e}
   #bottomPanels{order:3;width:100%}
 
-  /* City-list toggle: show the floating button over the map, and when
+  /* City-list toggle: show the floating button over the map (stacked above
+     the zoom controls, clear of the session/status bars), and when
      collapsed, hide the panel + top-countries panel entirely and let the
      map grow to fill almost the whole screen. */
-  #panelToggleBtn{display:block}
+  #panelToggleBtn{display:block;bottom:calc(108px + env(safe-area-inset-bottom));right:calc(10px + env(safe-area-inset-right));font-size:12px;padding:7px 12px}
   body.panel-collapsed #main{height:88dvh;max-height:none;min-height:420px}
   body.panel-collapsed #panel{display:none}
   body.panel-collapsed #bottomPanels{display:none}
