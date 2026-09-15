@@ -3553,7 +3553,69 @@ document.addEventListener('DOMContentLoaded', async () => {
   autoLoadCities();
 });
 
+// ─── LOCAL CACHE (IndexedDB) ────────────────────────────────────────────────
+// Downloading + gunzipping + parsing the GeoNames export is the expensive
+// part of every page load. data-version.json is a tiny file (written by the
+// .github/workflows/update-cities.yml Action alongside data.txt.gz) whose
+// "version" field only changes when the underlying data actually changes.
+// We cache the fully-parsed cityDB in IndexedDB keyed to that version, so a
+// repeat visit with no new data skips the download/parse entirely.
+const CITY_CACHE_DB = 'worldCityQuizCache';
+const CITY_CACHE_STORE = 'kv';
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(CITY_CACHE_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(CITY_CACHE_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(CITY_CACHE_STORE, 'readonly');
+      const req = tx.objectStore(CITY_CACHE_STORE).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { return undefined; }
+}
+async function idbSet(key, value) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(CITY_CACHE_STORE, 'readwrite');
+      tx.objectStore(CITY_CACHE_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) { /* ignore cache write failures — worst case we re-download next time */ }
+}
+
 async function autoLoadCities() {
+  // Cheap check first: does the published data differ from what we have cached?
+  let remoteVersion = null;
+  try {
+    const vRes = await fetch('data-version.json', { cache: 'no-store' });
+    if (vRes.ok) remoteVersion = (await vRes.json()).version || null;
+  } catch (e) { /* offline, file:// protocol, or file not published yet */ }
+
+  if (remoteVersion) {
+    try {
+      const cachedVersion = await idbGet('version');
+      if (cachedVersion === remoteVersion) {
+        const cachedCities = await idbGet('cityDB');
+        if (Array.isArray(cachedCities) && cachedCities.length) {
+          cityDB = cachedCities;
+          finaliseCityDB(0, 'cache');
+          return;
+        }
+      }
+    } catch (e) { /* cache unreadable — fall through to a full load */ }
+  }
+
   try {
     // Try the gzip-compressed file first (fetched as bytes, then inflated
     // client-side with pako — this is what lets a ~40MB GeoNames export ship
@@ -3565,6 +3627,7 @@ async function autoLoadCities() {
         const buf = await gzRes.arrayBuffer();
         const text = pako.inflate(new Uint8Array(buf), { to: 'string' });
         loadCitiesFromTSV(text);
+        if (remoteVersion) { idbSet('version', remoteVersion); idbSet('cityDB', cityDB); }
         return;
       }
     } catch (e) { /* fall through to the uncompressed options below */ }
@@ -3580,6 +3643,7 @@ async function autoLoadCities() {
         const buf = await res.arrayBuffer();
         loadCitiesFromBuffer(buf);
       }
+      if (remoteVersion) { idbSet('version', remoteVersion); idbSet('cityDB', cityDB); }
       return;
     }
   } catch (e) {
