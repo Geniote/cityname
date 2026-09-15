@@ -26,6 +26,14 @@ body.night-mode .zbtn,
 body.night-mode #zoomLbl,
 body.night-mode #resetViewBtn{background:rgba(20,24,32,.85)}
 body.night-mode #cityInput:focus{background:#1a1f29}
+body.night-mode #cityInputWrap:focus-within{background:#1a1f29;box-shadow:0 0 0 3px rgba(255,255,255,.08)}
+/* The Region dropdown's own open/closed control picks up the dark theme
+   fine; this styles its popup option list (rendered by the browser, but
+   still respects colour/background set on the <option>s themselves) to
+   match — dark background, white text — instead of the browser's plain
+   white popup default. */
+body.night-mode select option{color:#fff;background:#1a1f29}
+body.night-mode select optgroup{color:#fff;background:#1a1f29}
 body.night-mode .fi,
 body.night-mode .fi-empty{background:#182233}
 body.night-mode .fi.fi-is-capital{background:#1f3350}
@@ -102,6 +110,14 @@ body.night-mode #nightCanvas{display:block;mix-blend-mode:screen}
 #zoomLbl{position:absolute;bottom:12px;left:10px;font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;z-index:5}
 #resetViewBtn{position:absolute;bottom:12px;left:60px;font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer;z-index:5}
 #resetViewBtn:hover{background:var(--surface)}
+#mapColorsBtn{position:absolute;bottom:38px;left:10px;font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer;z-index:6;display:flex;align-items:center;gap:4px}
+#mapColorsBtn:hover{background:var(--surface)}
+#mapColorsBtn.active{border-color:var(--accent2);color:var(--accent2)}
+body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
+#mapColorsPopover{position:absolute;bottom:66px;left:10px;z-index:7;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18);width:190px;display:none}
+#mapColorsPopover.open{display:block}
+#mapColorsPopover .pop-title{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em}
+#mapColorsPopover .pop-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .tooltip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;pointer-events:none;display:none;z-index:30;box-shadow:0 2px 8px rgba(0,0,0,.12);line-height:1.6;white-space:nowrap}
 
 /* BELOW-MAP PANEL */
@@ -345,6 +361,13 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
     </div>
     <div id="zoomLbl">100%</div>
     <button id="resetViewBtn">Reset view</button>
+    <button type="button" id="mapColorsBtn" title="Map settings">🗺 Map settings</button>
+    <div id="mapColorsPopover">
+      <div class="pop-title-row"><span class="pop-title">🗺 Map Settings</span><button type="button" id="resetMapColors" class="reset-icon-btn" title="Reset map colours">↺</button></div>
+      <div class="row"><span class="lbl">Land</span><input type="color" id="landColor" value="#e8e4da"/></div>
+      <div class="row"><span class="lbl">Sea</span><input type="color" id="seaColor" value="#c8dff0"/></div>
+      <div class="row"><span class="lbl">Borders</span><input type="color" id="borderColor" value="#aaaaaa"/></div>
+    </div>
     <div class="tooltip" id="tooltip"></div>
   </div>
 </div><!-- end main (top screen) -->
@@ -426,14 +449,6 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
             <button type="button" class="scale-preset-btn" data-size-mode="smaller">Smaller</button>
             <button type="button" class="scale-preset-btn" data-size-mode="tiny">Tiny</button>
           </div>
-        </div>
-      </div>
-      <div class="sec sec-collapsible" id="secMap">
-        <div class="sec-title" onclick="toggleSec('secMap')">🗺 Map Colours <span class="sec-arrow">▼</span></div>
-        <div class="sec-body">
-          <div class="row"><span class="lbl">Land</span><input type="color" id="landColor" value="#e8e4da"/></div>
-          <div class="row"><span class="lbl">Sea</span><input type="color" id="seaColor" value="#c8dff0"/></div>
-          <div class="row"><span class="lbl">Borders</span><input type="color" id="borderColor" value="#aaaaaa"/></div>
         </div>
       </div>
       </div><!-- end settingsInner -->
@@ -582,6 +597,7 @@ const NIGHT_PRESET = { landColor:'#0d1420', seaColor:'#020409', borderColor:'#25
 // Night mode and Physical mode are toggles the user explicitly set and are never
 // touched by the reset button).
 const DOT_DEFAULTS = { dotColor:'#cb6543', dotAlpha:0.75, uniformSize:false, uniformR:0, dotSizeMode:'normal' };
+const MAP_DEFAULTS = { landColor:'#e8e4da', seaColor:'#c8dff0', borderColor:'#aaaaaa' };
 
 // The four dot-size presets. "normal" sizes dots by population, same as
 // before. Small/Smaller/Tiny instead fix every dot to the same size
@@ -2829,6 +2845,18 @@ document.getElementById('zoomIn').onclick = ()=>zoomBehavior.scaleBy(svg.transit
 document.getElementById('zoomOut').onclick = ()=>zoomBehavior.scaleBy(svg.transition().duration(250), 0.625);
 document.getElementById('resetViewBtn').onclick = ()=>{ currentTransform=d3.zoomIdentity; svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity); };
 
+// ─── MAP COLOURS POPOVER (button above the zoom %) ──────────────────────────
+document.getElementById('mapColorsBtn').onclick = (e) => {
+  e.stopPropagation();
+  document.getElementById('mapColorsPopover').classList.toggle('open');
+  document.getElementById('mapColorsBtn').classList.toggle('active');
+};
+document.getElementById('mapColorsPopover').addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => {
+  document.getElementById('mapColorsPopover').classList.remove('open');
+  document.getElementById('mapColorsBtn').classList.remove('active');
+});
+
 document.querySelectorAll('input[name="cmode"]').forEach(r=>{
   r.onchange=()=>{ S.countryMode=r.value; document.getElementById('countrySelect').disabled=(r.value!=='specific'); };
 });
@@ -2934,6 +2962,27 @@ document.getElementById('resetDotColorAlpha').onclick = () => {
     document.getElementById('dotAlpha').value = Math.round(S.dotAlpha * 100);
     document.getElementById('dotAlphaVal').textContent = Math.round(S.dotAlpha * 100) + '%';
     applyDotStyles();
+  }
+  persistSession();
+};
+
+document.getElementById('resetMapColors').onclick = () => {
+  // Same Night-mode-aware pattern as the dot colour/alpha reset above: while
+  // Night mode is on, the visible land/sea/border colours are the
+  // NIGHT_PRESET values, not the user's normal palette — that lives in
+  // S._preNight and only takes effect again once Night mode is switched off.
+  if (S.nightMode && S._preNight) {
+    S._preNight.landColor = MAP_DEFAULTS.landColor;
+    S._preNight.seaColor = MAP_DEFAULTS.seaColor;
+    S._preNight.borderColor = MAP_DEFAULTS.borderColor;
+  } else {
+    S.landColor = MAP_DEFAULTS.landColor;
+    S.seaColor = MAP_DEFAULTS.seaColor;
+    S.borderColor = MAP_DEFAULTS.borderColor;
+    document.getElementById('landColor').value = S.landColor;
+    document.getElementById('seaColor').value = S.seaColor;
+    document.getElementById('borderColor').value = S.borderColor;
+    applyMapColors();
   }
   persistSession();
 };
