@@ -29,7 +29,17 @@ jobs:
         run: |
           curl -sSL -o dump.zip "https://download.geonames.org/export/dump/cities500.zip"
           unzip -o dump.zip -d dump
-          mv dump/cities500.txt raw_data.txt
+          mv dump/cities500.txt full_data.txt
+
+      - name: Strip unused columns
+        # The full GeoNames export has 19 tab-separated columns; the app only
+        # ever reads 10 of them (id, name, asciiname, alternatenames, lat,
+        # lon, feature code, country code, admin1, population). Dropping the
+        # rest (elevation, dem, timezone, admin2-4, cc2, feature class,
+        # modification date) before gzipping shrinks both the download and
+        # the amount of data the browser has to split()/parse per row.
+        run: |
+          awk -F'\t' 'BEGIN{OFS="\t"} {print $1,$2,$3,$4,$5,$6,$8,$9,$11,$15}' full_data.txt > raw_data.txt
 
       - name: Compress to data.txt.gz
         run: gzip -9 -c raw_data.txt > data.txt.gz.new
