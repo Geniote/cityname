@@ -118,6 +118,11 @@ body.night-mode #nightCanvas{display:block;mix-blend-mode:screen}
 #mapColorsBtn:hover{background:var(--surface)}
 #mapColorsBtn.active{border-color:var(--accent2);color:var(--accent2)}
 body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
+/* Mobile-only control to hide/show the below-map cities panel so the map can
+   take up most of the screen. Hidden on desktop (the panel always shows
+   there); only revealed inside the mobile media query below. */
+#panelToggleBtn{display:none;position:absolute;top:10px;right:10px;font-size:12px;font-weight:600;color:var(--text2);background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:7px;padding:6px 11px;cursor:pointer;z-index:6}
+body.night-mode #panelToggleBtn{background:rgba(20,24,32,.85)}
 #mapColorsPopover{position:absolute;bottom:66px;left:10px;z-index:7;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18);width:190px;display:none}
 #mapColorsPopover.open{display:block}
 #mapColorsPopover .pop-title{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em}
@@ -294,9 +299,17 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
      siblings we can freely reorder with `order`, instead of #panel being
      stuck after the whole leftCol block. */
   #leftCol{display:contents}
-  #main{order:1;height:64dvh;min-height:340px;max-height:640px;flex-shrink:0;width:100%}
+  #main{order:1;height:64dvh;min-height:340px;max-height:640px;flex-shrink:0;width:100%;transition:height .2s ease}
   #panel{order:2;width:100%;height:auto;max-height:none;flex-shrink:0;border-left:none;border-top:2px solid #2b4c7e}
   #bottomPanels{order:3;width:100%}
+
+  /* City-list toggle: show the floating button over the map, and when
+     collapsed, hide the panel + top-countries panel entirely and let the
+     map grow to fill almost the whole screen. */
+  #panelToggleBtn{display:block}
+  body.panel-collapsed #main{height:88dvh;max-height:none;min-height:420px}
+  body.panel-collapsed #panel{display:none}
+  body.panel-collapsed #bottomPanels{display:none}
 
   /* Session bar: wrap onto its own rows instead of overflowing sideways */
   #sessionBar{flex-wrap:wrap;row-gap:8px;padding:8px 10px}
@@ -374,7 +387,7 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
     <span id="sessBadge" class="sess-badge active">● Active</span>
     <div id="inputControls">
       <div id="cityInputWrap">
-        <input id="cityInput" type="text" placeholder="Type a city name and press Enter…" autocomplete="off" spellcheck="false"/>
+        <input id="cityInput" type="text" placeholder="Type a city name and press Enter…" autocomplete="off" spellcheck="false" enterkeyhint="go"/>
         <select id="regionSelect" title="Region — only cities from the selected region are accepted">
           <optgroup label="Continents">
             <option value="world">World</option>
@@ -446,6 +459,7 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
     <div id="zoomLbl">100%</div>
     <button id="resetViewBtn">Reset view</button>
     <button type="button" id="mapColorsBtn" title="Map settings">🗺 Map settings</button>
+    <button type="button" id="panelToggleBtn" title="Hide/show the city list">▾ Hide list</button>
     <div id="mapColorsPopover">
       <div class="pop-title-row"><span class="pop-title">🗺 Map Settings</span><button type="button" id="resetMapColors" class="reset-icon-btn" title="Reset map colours">↺</button></div>
       <div class="row"><span class="lbl">Land</span><input type="color" id="landColor" value="#e8e4da"/></div>
@@ -3671,6 +3685,22 @@ document.getElementById('missedModal').addEventListener('click', e => {
   if (e.target === document.getElementById('missedModal'))
     document.getElementById('missedModal').style.display = 'none';
 });
+
+// ─── MOBILE: HIDE/SHOW CITY LIST PANEL ────────────────────────────────────
+// On narrow screens the found-cities panel (plus the top-countries panel)
+// sits below the map. This lets the user collapse it so the map fills most
+// of the screen, then bring it back.
+(function () {
+  const btn = document.getElementById('panelToggleBtn');
+  function setCollapsed(collapsed) {
+    document.body.classList.toggle('panel-collapsed', collapsed);
+    btn.textContent = collapsed ? '▸ Show list' : '▾ Hide list';
+  }
+  btn.addEventListener('click', () => {
+    setCollapsed(!document.body.classList.contains('panel-collapsed'));
+  });
+  setCollapsed(false);
+})();
 </script>
 </body>
 </html>
