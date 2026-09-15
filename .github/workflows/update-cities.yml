@@ -1,0 +1,59 @@
+name: Update GeoNames city data
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'   # every Sunday at 03:00 UTC — GeoNames itself only
+                          # republishes its dumps at most once a day, so
+                          # weekly is plenty. Change the cron string, or just
+                          # use "Run workflow" in the Actions tab, if you
+                          # want it more/less often.
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download latest GeoNames dump
+        # cities500.zip = all populated places with population >= 500 (plus
+        # every admin capital regardless of population). This is GeoNames'
+        # largest city-level dump — uncompressed it runs well over 100MB, so
+        # expect this step and the gzip step to take noticeably longer than
+        # smaller thresholds, and data.txt.gz itself will be a bigger file
+        # for a first-time visitor's browser to download.
+        run: |
+          curl -sSL -o dump.zip "https://download.geonames.org/export/dump/cities500.zip"
+          unzip -o dump.zip -d dump
+          mv dump/cities500.txt raw_data.txt
+
+      - name: Compress to data.txt.gz
+        run: gzip -9 -c raw_data.txt > data.txt.gz.new
+
+      - name: Check if data actually changed
+        id: diff
+        run: |
+          if [ -f data.txt.gz ] && cmp -s data.txt.gz.new data.txt.gz; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Replace data file and write version stamp
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          mv data.txt.gz.new data.txt.gz
+          printf '{"version":"%s","updated":"%s"}\n' \
+            "$(sha256sum data.txt.gz | cut -c1-12)" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > data-version.json
+
+      - name: Commit and push if changed
+        if: steps.diff.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update GeoNames city data"
+          file_pattern: "data.txt.gz data-version.json"
