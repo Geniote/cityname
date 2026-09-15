@@ -24,7 +24,8 @@ body.night-mode{
 }
 body.night-mode .zbtn,
 body.night-mode #zoomLbl,
-body.night-mode #resetViewBtn{background:rgba(20,24,32,.85)}
+body.night-mode #resetViewBtn,
+body.night-mode #panelToggleBtn{background:rgba(20,24,32,.85)}
 body.night-mode #cityInput:focus{background:#1a1f29}
 body.night-mode #cityInputWrap:focus-within{background:#1a1f29;box-shadow:0 0 0 3px rgba(255,255,255,.08)}
 /* The Region dropdown's own open/closed control picks up the dark theme
@@ -111,8 +112,9 @@ body.night-mode #nightCanvas{display:block;mix-blend-mode:screen}
 .zbtn-wrap{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:4px;z-index:5}
 .zbtn{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.9);font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .zbtn:hover{background:var(--surface)}
-#zoomLbl{position:absolute;bottom:12px;left:10px;font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;z-index:5}
-#resetViewBtn{position:absolute;bottom:12px;left:60px;font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer;z-index:5}
+#zoomInfoWrap{position:absolute;bottom:12px;left:10px;display:flex;align-items:center;gap:6px;z-index:5}
+#zoomLbl{font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px}
+#resetViewBtn{font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer}
 #resetViewBtn:hover{background:var(--surface)}
 #mapColorsBtn{position:absolute;bottom:38px;left:10px;font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer;z-index:6;display:flex;align-items:center;gap:4px}
 #mapColorsBtn:hover{background:var(--surface)}
@@ -124,7 +126,6 @@ body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
    (Not placed near the top of the map — that area sits underneath the
    session/status bars, which render above the map and would hide it.) */
 #panelToggleBtn{display:none;position:absolute;font-size:12px;font-weight:600;color:var(--text2);background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:7px;padding:6px 11px;cursor:pointer;z-index:6}
-body.night-mode #panelToggleBtn{background:rgba(20,24,32,.85)}
 #mapColorsPopover{position:absolute;bottom:66px;left:10px;z-index:7;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18);width:190px;display:none}
 #mapColorsPopover.open{display:block}
 #mapColorsPopover .pop-title{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em}
@@ -333,8 +334,9 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
      nudged clear of any notch/home-indicator safe areas */
   .zbtn-wrap{bottom:calc(12px + env(safe-area-inset-bottom));right:calc(10px + env(safe-area-inset-right));gap:6px}
   .zbtn{width:42px;height:42px;font-size:20px}
-  #zoomLbl{bottom:calc(12px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));font-size:12px;padding:4px 8px}
-  #resetViewBtn{bottom:calc(12px + env(safe-area-inset-bottom));left:calc(96px + env(safe-area-inset-left));font-size:12px;padding:5px 10px}
+  #zoomInfoWrap{bottom:calc(12px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));gap:8px}
+  #zoomLbl{font-size:12px;padding:4px 8px}
+  #resetViewBtn{font-size:12px;padding:5px 10px}
   #mapColorsBtn{bottom:calc(56px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));font-size:12px;padding:5px 10px}
   #mapColorsPopover{bottom:calc(90px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));width:min(220px,80vw)}
   .tooltip{display:none !important} /* hover tooltips have no touch equivalent; avoid a stuck ghost tooltip */
@@ -459,8 +461,10 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
       <button class="zbtn" id="zoomIn">+</button>
       <button class="zbtn" id="zoomOut">−</button>
     </div>
-    <div id="zoomLbl">100%</div>
-    <button id="resetViewBtn">Reset view</button>
+    <div id="zoomInfoWrap">
+      <div id="zoomLbl">100%</div>
+      <button id="resetViewBtn">Reset view</button>
+    </div>
     <button type="button" id="mapColorsBtn" title="Map settings">🗺 Map settings</button>
     <button type="button" id="panelToggleBtn" title="Hide/show the city list">▾ Hide list</button>
     <div id="mapColorsPopover">
