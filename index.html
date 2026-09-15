@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <title>World City Quiz</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
@@ -101,7 +101,7 @@ body.night-mode #msg{background:rgba(20,24,32,.85)}
 #summaryBar strong{color:var(--text);font-weight:700;font-size:19px}
 #summaryBar .pop-total{color:var(--accent2);font-weight:700}
 #main{display:flex;flex-direction:column;height:100vh;min-height:100vh;flex-shrink:0;position:relative}
-#mapWrap{position:absolute;inset:0;overflow:hidden;cursor:grab;z-index:1}
+#mapWrap{position:absolute;inset:0;overflow:hidden;cursor:grab;z-index:1;touch-action:none}
 #bottomPanels{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;width:100%;border-top:2px solid #2b4c7e;position:relative}
 #mapWrap:active{cursor:grabbing}
 svg#map{width:100%;height:100%}
@@ -279,6 +279,87 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
 .radio-row{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer}
 .radio-row input{accent-color:var(--accent2)}
 #countrySelect{width:100%;height:27px;padding:0 5px;border:1px solid var(--border);border-radius:5px;background:var(--bg);font-size:12px;color:var(--text);margin-top:5px;max-width:100%}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PHONE LAYOUT — everything below only applies on narrow / touch screens.
+   Desktop layout (fixed 100vh, side-by-side map + sidebar) is untouched.
+   Strategy: turn the rigid "sidebar app" layout into one scrollable column
+   — map+controls first, then the found-cities/settings panel, then the
+   country-stats panel — and enlarge every tappable control.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 860px){
+  html,body{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}
+  #appRow{flex-direction:column;height:auto;min-height:100dvh;overflow:visible}
+  /* display:contents unwraps leftCol so #main, #panel and #bottomPanels become
+     siblings we can freely reorder with `order`, instead of #panel being
+     stuck after the whole leftCol block. */
+  #leftCol{display:contents}
+  #main{order:1;height:64dvh;min-height:340px;max-height:640px;flex-shrink:0;width:100%}
+  #panel{order:2;width:100%;height:auto;max-height:none;flex-shrink:0;border-left:none;border-top:2px solid #2b4c7e}
+  #bottomPanels{order:3;width:100%}
+
+  /* Session bar: wrap onto its own rows instead of overflowing sideways */
+  #sessionBar{flex-wrap:wrap;row-gap:8px;padding:8px 10px}
+  #sessionName{max-width:46vw}
+  #sessManagerBtn{margin-left:auto;order:3}
+  #inputControls{order:4;flex-basis:100%;width:100%;flex-wrap:wrap;row-gap:8px}
+  #cityInputWrap{flex:1 1 100%;width:100%;height:44px}
+  #cityInput{font-size:16px;padding-right:96px}
+  #regionSelect{width:82px;font-size:11px}
+  #guessBtn{flex:1 1 0;height:42px;font-size:14px}
+  #clearBtn{flex:1 1 0;height:42px;font-size:14px}
+
+  #statusRow{padding:4px 10px}
+  #summaryBar{font-size:14px}
+  #summaryBar strong{font-size:16px}
+
+  /* Map area: bigger touch targets for zoom/reset/settings controls,
+     nudged clear of any notch/home-indicator safe areas */
+  .zbtn-wrap{bottom:calc(12px + env(safe-area-inset-bottom));right:calc(10px + env(safe-area-inset-right));gap:6px}
+  .zbtn{width:42px;height:42px;font-size:20px}
+  #zoomLbl{bottom:calc(12px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));font-size:12px;padding:4px 8px}
+  #resetViewBtn{bottom:calc(12px + env(safe-area-inset-bottom));left:calc(96px + env(safe-area-inset-left));font-size:12px;padding:5px 10px}
+  #mapColorsBtn{bottom:calc(56px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));font-size:12px;padding:5px 10px}
+  #mapColorsPopover{bottom:calc(90px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));width:min(220px,80vw)}
+  .tooltip{display:none !important} /* hover tooltips have no touch equivalent; avoid a stuck ghost tooltip */
+
+  /* Found-cities panel keeps its own internal scroll so the settings below
+     it stay reachable without an endless list pushing the page down */
+  #foundGrid{max-height:46vh}
+  #panelHeader{padding:10px 12px}
+  #missedBtn{padding:12px;font-size:14px}
+
+  /* Country-filter / dot-appearance settings: bigger rows & controls */
+  .sec-title{padding:12px}
+  .sec-body{padding:12px}
+  .radio-row,.lbl{font-size:13px}
+  select,#countrySelect{height:34px;font-size:13px}
+  input[type=checkbox]{width:18px;height:18px}
+  input[type=color]{width:38px;height:32px}
+  .scale-preset-btn{padding:8px 0;font-size:12px}
+
+  /* Top-shapes / country cards: wrap to a small grid instead of squeezing */
+  #topShapesList{flex-wrap:wrap}
+  .shape-card{flex:1 1 27%;max-width:110px}
+  .shape-icon{max-width:64px}
+  .shape-fallback{font-size:36px}
+
+  /* General: comfortable tap targets everywhere else */
+  .tbbtn{height:38px;font-size:13px}
+  .sca{height:32px;font-size:12px;padding:0 12px}
+  #createSessBtn,#newSessNameInput{height:38px}
+  .rm{width:26px;height:26px;font-size:14px}
+  button,select,input{touch-action:manipulation}
+
+  /* Modals: use available height fully on small screens */
+  #sessBox,#missedBox{width:94vw;max-height:88dvh}
+}
+
+@media (max-width: 420px){
+  #sessionName{max-width:38vw;font-size:13px}
+  .sess-badge{display:none} /* reclaim space on very small phones */
+  .shape-card{flex:1 1 40%}
+}
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
