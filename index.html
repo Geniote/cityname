@@ -1766,38 +1766,63 @@ function finaliseCityDB(swappedCount) {
   renderOtherStats();
 }
 
+// Shared, never-mutated placeholder for cities with no alternate names — avoids
+// allocating a fresh empty array (and a throwaway Set) per row for what is the
+// common case, especially for the small towns that make up most of a cities500 export.
+const EMPTY_ALIASES_F = [];
+
 function loadCitiesFromTSV(text) {
   try {
     const lines = text.split('\n');
     let swappedCount = 0;
-    cityDB = lines.map(line => {
-      if (!line.trim() || line.startsWith('#')) return null;
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line || line.charCodeAt(0) === 35 /* '#' */) continue; // cheap skip for blank/comment lines
       const r = line.split('\t');
-      if (r.length < 9) return null;
-      // GeoNames columns: 0=id,1=name,2=asciiname,3=alternatenames,4=lat,5=lon,6=featureclass,7=featurecode,8=countrycode,...,14=population
-      const featureCode = r[7].trim();
-      if (featureCode === 'PPLX') return null; // skip neighbourhoods/districts
+      if (r.length < 9) continue;
+      // Two possible column layouts land here:
+      //  - a full/raw GeoNames export (>=15 cols): 0=id,1=name,2=asciiname,
+      //    3=alternatenames,4=lat,5=lon,6=featureclass,7=featurecode,
+      //    8=countrycode,10=admin1,14=population — e.g. a manually uploaded
+      //    cities15000.txt straight from GeoNames.
+      //  - the slim export update-cities.yml produces (10 cols, unused
+      //    GeoNames columns like elevation/timezone/admin2-4 stripped to
+      //    shrink the download): 0=id,1=name,2=asciiname,3=alternatenames,
+      //    4=lat,5=lon,6=featurecode,7=countrycode,8=admin1,9=population
+      const isSlim = r.length < 15;
+      const featureCode = (isSlim ? r[6] : r[7]).trim();
+      if (featureCode === 'PPLX') continue; // skip neighbourhoods/districts
       const name       = r[1].trim();
-      const ascii_name = r[2].trim() || name;
-      const aliases    = r[3].split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-      const country    = r[8].trim();
-      const admin1     = (r[10] || '').trim().toUpperCase(); // state/province code (column K)
-      const pop        = parseInt(r[14]) || 0;
+      if (!name) continue;
+      const asciiRaw   = r[2].trim();
+      const ascii_name = asciiRaw || name;
+      const altField   = r[3];
+      const aliases    = altField ? altField.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean) : [];
+      const country    = (isSlim ? r[7] : r[8]).trim();
+      const admin1     = ((isSlim ? r[8] : r[10]) || '').trim().toUpperCase();
+      const pop        = parseInt(isSlim ? r[9] : r[14]) || 0;
       let lat = parseFloat(r[4]);
       let lon = parseFloat(r[5]);
-      if (isNaN(lat) || isNaN(lon)) return null;
+      if (isNaN(lat) || isNaN(lon)) continue;
       const latOk = lat >= -90 && lat <= 90;
       const lonOk = lon >= -180 && lon <= 180;
       if (!latOk && lonOk && lon >= -90 && lon <= 90 && lat >= -180 && lat <= 180) {
         [lat, lon] = [lon, lat]; swappedCount++;
-      } else if (!latOk || !lonOk) return null;
+      } else if (!latOk || !lonOk) continue;
       const disputedCap = DISPUTED_CAPITALS[country];
       const isCapital = (featureCode === 'PPLC' && (!disputedCap || disputedCap === ascii_name)) || disputedCap === ascii_name;
-      const nameF = fold(name), asciiF = fold(ascii_name);
-      const aliasesF = [...new Set([...aliases.map(fold), ...(country === 'MX' && pop >= 50000 ? getMexicanAliases(name) : [])])];
+      const nameF = fold(name);
+      // Most rows have no ASCII transliteration to fold separately — reuse nameF.
+      const asciiF = asciiRaw && asciiRaw !== name ? fold(ascii_name) : nameF;
+      const mxAliases = country === 'MX' && pop >= 50000 ? getMexicanAliases(name) : null;
+      const aliasesF = (aliases.length || mxAliases)
+        ? [...new Set([...aliases.map(fold), ...(mxAliases || [])])]
+        : EMPTY_ALIASES_F;
       const geonamesId = parseInt(r[0]);
-      return { name, ascii_name, nameF, asciiF, aliasesF, aliases, lat, lon, country, admin1, pop, isCapital, geonamesId };
-    }).filter(c => c && c.name);
+      out.push({ name, ascii_name, nameF, asciiF, aliasesF, aliases, lat, lon, country, admin1, pop, isCapital, geonamesId });
+    }
+    cityDB = out;
     finaliseCityDB(swappedCount, 'txt');
   } catch(err) {
     setFileStatus('❌ Error reading file');
