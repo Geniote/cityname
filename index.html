@@ -2378,13 +2378,18 @@ function normalizeJPAdmin1(admin1) {
   if (!Number.isFinite(n)) return null;
   return JP_ADMIN1_TO_JISID[n] ?? null;
 }
-// Mirrors the US_STATE_CAPITALS double-check (name AND admin1 must both
-// match) so a same-named city filed under the wrong prefecture doesn't
-// wrongly earn the ★ — used everywhere Japan mode needs to know if a found
-// city is a prefectural capital.
+// Unlike US state capitals — where the exact same city name recurs across
+// many different states (Springfield, Columbus, Jackson…), making an admin1
+// cross-check essential — Japanese municipality names are effectively unique
+// nationwide, so a name match alone (scoped to Japan) is enough. This used to
+// also require normalizeJPAdmin1(city.admin1) to equal the prefecture's JIS
+// id, but the raw GeoNames admin1 code on a handful of real prefectural-seat
+// records (Fukui, Nara, Tottori, Oita, Otsu among them) doesn't reliably
+// match the prefecture the city is actually the seat of, so that stricter
+// check was silently failing to credit them as capitals even though the
+// city itself was found correctly.
 function isJPPrefCapital(city) {
-  const jisId = JP_PREF_CAPITAL_BY_NAME.get(city.name.toLowerCase());
-  return jisId !== undefined && normalizeJPAdmin1(city.admin1) === jisId;
+  return city.country === 'JP' && JP_PREF_CAPITAL_BY_NAME.has(city.name.toLowerCase());
 }
 
 
@@ -3171,14 +3176,14 @@ function renderOtherStats() {
     const pctCapitals = ((gotCapitals/totalCapitals)*100).toFixed(1);
     rows.push({ label: 'state capitals', got: gotCapitals, total: totalCapitals, pct: pctCapitals });
   } else if (isJapan) {
-    // Prefecture capitals — a city only counts if its name matches the
-    // prefecture's seat AND it's actually filed under that prefecture's
-    // admin1 code (so e.g. a same-named town elsewhere doesn't count).
+    // Prefecture capitals — a city counts if its name matches one of the 47
+    // prefectural seats (see isJPPrefCapital for why this no longer also
+    // requires the raw admin1 code to match).
     const totalCapitals = JP_PREF_CAPITAL_BY_NAME.size; // 47
     const gotCapitals = new Set(
       regionFound
-        .filter(c => JP_PREF_CAPITAL_BY_NAME.get(c.name.toLowerCase()) === normalizeJPAdmin1(c.admin1))
-        .map(c => normalizeJPAdmin1(c.admin1))
+        .filter(c => isJPPrefCapital(c))
+        .map(c => JP_PREF_CAPITAL_BY_NAME.get(c.name.toLowerCase()))
     ).size;
     const pctCapitals = ((gotCapitals/totalCapitals)*100).toFixed(1);
     rows.push({ label: 'prefecture capitals', got: gotCapitals, total: totalCapitals, pct: pctCapitals });
@@ -4279,7 +4284,7 @@ function buildMissedModal() {
   } else if (isJapan) {
     Object.entries(JP_PREF_CAPITAL_NAMES).forEach(([jisId, cityNameLower]) => {
       const id = Number(jisId);
-      const gotIt = found.some(c => c.name.toLowerCase() === cityNameLower && normalizeJPAdmin1(c.admin1) === id);
+      const gotIt = found.some(c => c.name.toLowerCase() === cityNameLower && c.country === 'JP');
       if (!gotIt) missedCapitals.push({ label: `${cityNameLower.replace(/\b\w/g, l => l.toUpperCase())} (${JP_PREF_NAMES[id]})`, cls: 'capital' });
     });
     missedCapitals.sort((a,b) => a.label.localeCompare(b.label));
