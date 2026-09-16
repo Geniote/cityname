@@ -1906,8 +1906,19 @@ const LOCAL_NAME_OVERRIDES = {
   'bucharest':'București', 'belgrade':'Beograd',
   'marseilles':'Marseille', 'dunkirk':'Dunkerque',
 };
+// Japanese municipality names in this data sometimes carry the "-shi" (市,
+// "city") suffix baked in — e.g. "Fukui-shi", "Nara-shi" — which is never
+// how a person would actually type or expect to see these names (nobody
+// calls it "Fukui-shi" in casual English; see isJPPrefCapital's jpCapitalKey
+// for the matching-side counterpart of this same quirk). Strip it for
+// display only; search/matching still runs against the original name.
+function stripJPShiSuffix(name) {
+  return name.replace(/-shi$/i, '');
+}
 function displayName(city) {
-  return LOCAL_NAME_OVERRIDES[city.name.toLowerCase()] || city.name;
+  let name = LOCAL_NAME_OVERRIDES[city.name.toLowerCase()] || city.name;
+  if (city.country === 'JP') name = stripJPShiSuffix(name);
+  return name;
 }
 
 // ─── FILE LOADER ─────────────────────────────────────────────────────────────
@@ -2388,8 +2399,35 @@ function normalizeJPAdmin1(admin1) {
 // match the prefecture the city is actually the seat of, so that stricter
 // check was silently failing to credit them as capitals even though the
 // city itself was found correctly.
+//
+// Matching must go through the same folded/ASCII form used everywhere else
+// a guess is matched against a city (see lookupCity's nameF/asciiF), NOT the
+// raw, possibly-diacritic'd city.name. GeoNames' Hepburn romanizations keep
+// macrons on several prefectural-seat names (e.g. "Ōita", "Ōtsu"), so
+// comparing city.name.toLowerCase() directly against the plain-ASCII keys in
+// JP_PREF_CAPITAL_NAMES ('oita', 'otsu', …) silently failed for exactly
+// those cities — they'd still get placed on the map (lookupCity matches via
+// the folded asciiF field, which does strip the macron), but never counted
+// as a capital. jpCapitalKey() below returns the same diacritic-stripped key
+// lookupCity already relies on, so capital-checking and city-finding agree.
+//
+// A second, separate issue: some records carry the Japanese municipal-type
+// suffix "-shi" (市, "city") baked into the name itself — e.g. "Fukui-shi",
+// "Nara-shi" — rather than the bare "Fukui"/"Nara" that JP_PREF_CAPITAL_NAMES
+// is keyed on. fold() turns the hyphen into a space ("fukui shi"), so that
+// never matched either, again despite the city being found and pinned fine
+// (lookupCity matches on whatever's in the data, suffix and all). Every
+// prefectural capital is itself a "-shi" (city), never a -gun/-machi/-mura,
+// so it's always safe to also try the key with a trailing " shi" stripped.
+function jpCapitalKey(city) {
+  const key = city.asciiF || fold(city.ascii_name || city.name);
+  if (JP_PREF_CAPITAL_BY_NAME.has(key)) return key;
+  const noSuffix = key.replace(/[ -]?shi$/, '');
+  if (noSuffix !== key && JP_PREF_CAPITAL_BY_NAME.has(noSuffix)) return noSuffix;
+  return key;
+}
 function isJPPrefCapital(city) {
-  return city.country === 'JP' && JP_PREF_CAPITAL_BY_NAME.has(city.name.toLowerCase());
+  return city.country === 'JP' && JP_PREF_CAPITAL_BY_NAME.has(jpCapitalKey(city));
 }
 
 
@@ -2555,13 +2593,13 @@ function guess() {
     let addedAny = false;
     results.forEach(city => {
       if (found.find(f=>f.name===city.name&&f.country===city.country&&(f.admin1||'')===( city.admin1||''))) {
-        setMsg(`Already found ${city.name}${city.admin1?', '+city.admin1:''}${city.country?', '+city.country:''}!`, 'dup');
+        setMsg(`Already found ${displayName(city)}${city.admin1?', '+city.admin1:''}${city.country?', '+city.country:''}!`, 'dup');
       } else {
         found.push(city); addDot(city); addFoundItem(city); addedAny = true; drawNightCanvas();
       }
     });
     if (addedAny) {
-      const names = results.map(c=>`${c.name} (${fmtLocation(c)})`).join(', ');
+      const names = results.map(c=>`${displayName(c)} (${fmtLocation(c)})`).join(', ');
       const popStr = results.length===1&&results[0].pop ? ` — pop. ${fmtPop(results[0].pop)}` : '';
       setMsg(`✓ ${names}${popStr}`, 'ok');
       persistSession();
@@ -3183,7 +3221,7 @@ function renderOtherStats() {
     const gotCapitals = new Set(
       regionFound
         .filter(c => isJPPrefCapital(c))
-        .map(c => JP_PREF_CAPITAL_BY_NAME.get(c.name.toLowerCase()))
+        .map(c => JP_PREF_CAPITAL_BY_NAME.get(jpCapitalKey(c)))
     ).size;
     const pctCapitals = ((gotCapitals/totalCapitals)*100).toFixed(1);
     rows.push({ label: 'prefecture capitals', got: gotCapitals, total: totalCapitals, pct: pctCapitals });
@@ -4266,7 +4304,7 @@ function buildMissedModal() {
     if (missedAtThresh.length) {
       sections.push({
         title: `Missing cities over ${label} (${missedAtThresh.length})`,
-        chips: missedAtThresh.map(c => ({ label: `${c.name} (${fmtPop(c.pop)})`, cls: 'big' })),
+        chips: missedAtThresh.map(c => ({ label: `${displayName(c)} (${fmtPop(c.pop)})`, cls: 'big' })),
       });
     }
   }
@@ -4284,7 +4322,7 @@ function buildMissedModal() {
   } else if (isJapan) {
     Object.entries(JP_PREF_CAPITAL_NAMES).forEach(([jisId, cityNameLower]) => {
       const id = Number(jisId);
-      const gotIt = found.some(c => c.name.toLowerCase() === cityNameLower && c.country === 'JP');
+      const gotIt = found.some(c => c.country === 'JP' && jpCapitalKey(c) === cityNameLower);
       if (!gotIt) missedCapitals.push({ label: `${cityNameLower.replace(/\b\w/g, l => l.toUpperCase())} (${JP_PREF_NAMES[id]})`, cls: 'capital' });
     });
     missedCapitals.sort((a,b) => a.label.localeCompare(b.label));
