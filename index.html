@@ -24,7 +24,6 @@ body.night-mode{
 }
 body.night-mode .zbtn,
 body.night-mode #zoomLbl,
-body.night-mode #resetViewBtn,
 body.night-mode #panelToggleBtn{background:rgba(20,24,32,.85)}
 body.night-mode #cityInput:focus{background:#1a1f29}
 body.night-mode #cityInputWrap:focus-within{background:#1a1f29;box-shadow:0 0 0 3px rgba(255,255,255,.08)}
@@ -39,8 +38,8 @@ body.night-mode .fi,
 body.night-mode .fi-empty{background:#182233}
 body.night-mode .fi.fi-is-capital{background:#1f3350}
 body.night-mode .fi.highlighted{background:#3a3418}
-body.night-mode .city-dot circle{mix-blend-mode:screen}
-body.night-mode.map-panning .city-dot circle{filter:none !important;mix-blend-mode:normal !important}
+body.night-mode .city-dot circle.main-dot{mix-blend-mode:screen}
+body.night-mode.map-panning .city-dot circle.main-dot{filter:none !important;mix-blend-mode:normal !important}
 /* All city lights in Night mode are drawn on #nightCanvas instead (see NIGHT
    CANVAS in the script) — the SVG dots are hidden, except the one instance
    being actively highlighted after a correct guess, whose brief pulse-ring
@@ -55,9 +54,19 @@ body.night-mode .city-dot.force-visible{display:block}
    this for free via :hover; Night mode's dots are display:none (see above)
    so JS toggles the same .hover-active class manually when it detects a
    hover via manual hit-testing (see onNightMouseMove). */
-.city-dot circle{transition:transform .18s cubic-bezier(.34,1.56,.64,1);transform-box:fill-box;transform-origin:center}
-.city-dot circle:hover,
-.city-dot circle.hover-active{transform:scale(1.7)}
+.city-dot circle.main-dot{transition:transform .18s cubic-bezier(.34,1.56,.64,1);transform-box:fill-box;transform-origin:center}
+.city-dot circle.main-dot:hover,
+.city-dot circle.main-dot.hover-active{transform:scale(1.7)}
+/* Pin mode — every dot also carries a hidden "3D pin" group (ball + shaft +
+   gloss highlight) alongside its normal flat circle; only one of the two is
+   shown at a time via body.pin-mode, so switching the mode needs no rebuild. */
+.city-dot .pin-group{display:none}
+body.pin-mode .city-dot .pin-group{display:block}
+body.pin-mode .city-dot circle.main-dot{display:none}
+.pin-group .pin-shadow,.pin-group .pin-shaft,.pin-group .pin-gloss{pointer-events:none}
+.pin-group .pin-ball{cursor:pointer;transition:transform .18s cubic-bezier(.34,1.56,.64,1);transform-box:fill-box;transform-origin:center}
+.pin-group .pin-ball:hover,
+.pin-group .pin-ball.hover-active{transform:scale(1.25)}
 body.night-mode .fi-empty-bar{background:rgba(255,255,255,.09)}
 body.night-mode .fi-empty-overlay{background:rgba(0,0,0,.4)}
 body.night-mode .fi-empty-overlay .empty-load-btn{background:#1a1f29;color:var(--text);border-color:rgba(255,255,255,.14)}
@@ -80,7 +89,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tbbtn.danger{background:#c96a63;color:#fff;border-color:#c96a63}
 .tbbtn.danger:hover{filter:brightness(0.92)}
 body.night-mode .tbbtn.danger{background:#a85850;border-color:#a85850}
-#regionSelect{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--text2) 50%),linear-gradient(135deg,var(--text2) 50%,transparent 50%);background-position:calc(100% - 11px) center,calc(100% - 6px) center;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
 .ok{color:var(--success)}.err{color:var(--danger)}.dup{color:var(--warn)}.info{color:var(--text2)}
 
 /* STATUS STRIP — thin bar below the session/input bar showing the found-cities
@@ -89,10 +97,45 @@ body.night-mode .tbbtn.danger{background:#a85850;border-color:#a85850}
 #inputControls{display:flex;align-items:center;gap:8px;flex:1;justify-content:center;min-width:0}
 #cityInputWrap{position:relative;width:480px;max-width:100%;height:38px;border:2px solid var(--border);border-radius:9px;background:var(--bg);transition:border-color .15s,background .15s}
 #cityInputWrap:focus-within{border-color:var(--accent2);background:#fff;box-shadow:0 0 0 3px rgba(43,76,126,.1)}
-#cityInput{width:100%;height:100%;padding:0 92px 0 16px;font-size:16px;font-weight:500;border:none;outline:none;background:transparent;color:var(--text);letter-spacing:.01em;border-radius:9px}
+#cityInput{width:100%;height:100%;padding:0 128px 0 16px;font-size:16px;font-weight:500;border:none;outline:none;background:transparent;color:var(--text);letter-spacing:.01em;border-radius:9px}
 #cityInput::placeholder{color:var(--text3);font-weight:400}
-#regionSelect{position:absolute;right:3px;top:3px;bottom:3px;width:84px;height:auto;margin:0;border:none;border-left:1px solid var(--border);border-radius:0 7px 7px 0;background-color:transparent;font-size:11px;font-weight:600;color:var(--text2);padding:0 18px 0 8px}
-#regionSelect:hover{color:var(--text);background-color:rgba(0,0,0,.03)}
+/* Country filter: custom dropdown (a native <select> renders a full-height
+   OS list — this keeps the drop-down compact and scrollable instead). */
+#countryFilterBtn{position:absolute;right:3px;top:3px;bottom:3px;width:120px;display:flex;align-items:center;gap:4px;margin:0;border:none;border-left:1px solid var(--border);border-radius:0 7px 7px 0;background-color:transparent;font-size:11px;font-weight:600;color:var(--text2);padding:0 8px;cursor:pointer;text-align:left}
+#countryFilterBtn:hover{color:var(--text);background-color:rgba(0,0,0,.03)}
+#countryFilterBtn.filtering{color:var(--accent2)}
+#cfBtnLabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cfCaret{flex-shrink:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-top:4px solid currentColor}
+#countryFilterPanel{display:none;position:absolute;right:0;top:calc(100% + 5px);width:190px;max-height:216px;overflow-y:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.18);z-index:60;padding:4px}
+#countryFilterPanel.open{display:block}
+.cf-opt{display:block;width:100%;padding:5px 8px;border:none;border-radius:5px;background:none;font-size:11.5px;font-weight:600;color:var(--text);text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.cf-opt:hover{background:var(--bg)}
+.cf-opt.active{background:#f0f4fb;color:var(--accent2)}
+body.night-mode .cf-opt.active{background:rgba(43,76,126,.3)}
+.cf-sep{font-size:9.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;padding:6px 8px 3px;border-top:1px solid var(--border);margin-top:4px}
+.cf-empty{padding:7px 8px;font-size:11px;color:var(--text3)}
+
+/* MAP PICKER — button in the session bar (left of the typing bar) + its modal */
+#mapPickBtn{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--surface);color:var(--text2);white-space:nowrap;flex-shrink:0}
+#mapPickBtn:hover{background:var(--bg);color:var(--text)}
+#mapPickDot{width:9px;height:9px;border-radius:50%;background:#2B4C7E;flex-shrink:0}
+#mapModal{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.45);align-items:center;justify-content:center}
+#mapModal.open{display:flex}
+#mapBox{background:var(--surface);border-radius:12px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.22);overflow:hidden}
+#mapBoxHead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+#mapBoxHead h2{font-size:15px;font-weight:700;color:var(--accent2)}
+#mapClose{border:none;background:transparent;font-size:18px;cursor:pointer;color:var(--text2);line-height:1;padding:2px 6px;border-radius:4px}
+#mapClose:hover{background:var(--bg)}
+#mapList{flex:1;overflow-y:auto;padding:12px 14px}
+.map-group-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin:4px 2px 8px}
+.map-group+.map-group{margin-top:14px}
+.map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.map-opt{display:flex;align-items:center;gap:9px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);text-align:left;transition:border-color .15s,box-shadow .15s}
+.map-opt:hover{border-color:var(--accent2);box-shadow:0 2px 8px rgba(43,76,126,.1)}
+.map-opt.current{border-color:var(--accent2);background:#f0f4fb}
+body.night-mode .map-opt.current{background:rgba(43,76,126,.25)}
+.map-opt-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.map-opt-check{margin-left:auto;color:var(--accent2);font-size:12px}
 /* Notification / transient guess feedback — floats over the top-left corner
    of the map instead of taking up space in the status strip. */
 .overlayMsg{font-size:11px;font-family:'Nunito','Varela Round','Trebuchet MS',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .3s;text-align:left;line-height:1.3;letter-spacing:.01em;font-weight:500}
@@ -109,27 +152,55 @@ svg#map{width:100%;height:100%}
 #map-g,#physical-g{will-change:transform;transform-box:view-box;transform-origin:0 0}
 #nightCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none}
 body.night-mode #nightCanvas{display:block;mix-blend-mode:screen}
-.zbtn-wrap{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:4px;z-index:5}
+.zbtn-wrap{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;align-items:center;gap:4px;z-index:5}
 .zbtn{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.9);font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .zbtn:hover{background:var(--surface)}
-#zoomInfoWrap{position:absolute;bottom:12px;left:10px;display:flex;align-items:center;gap:6px;z-index:5}
-#zoomLbl{font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px}
-#resetViewBtn{font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer}
-#resetViewBtn:hover{background:var(--surface)}
-#mapColorsBtn{position:absolute;bottom:38px;left:10px;font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;cursor:pointer;z-index:6;display:flex;align-items:center;gap:4px}
-#mapColorsBtn:hover{background:var(--surface)}
-#mapColorsBtn.active{border-color:var(--accent2);color:var(--accent2)}
-body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
+#resetViewBtn{font-size:14px;padding:0;color:var(--text2)}
+#resetViewBtn svg{width:14px;height:14px;display:block;pointer-events:none}
+#zoomLbl{font-size:11px;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:5px;padding:2px 7px;text-align:center;white-space:nowrap}
+#mapColorsBtn,#dotAppearanceBtn{position:absolute;left:10px;font-size:12px;line-height:1.25;color:var(--text2);background:rgba(255,255,255,.85);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;z-index:6;display:flex;align-items:center;gap:5px}
+/* Bottom-aligned with the zoom controls on the right (12px), stacked upward */
+#mapColorsBtn{bottom:12px}
+#dotAppearanceBtn{bottom:50px}
+#mapColorsBtn:hover,#dotAppearanceBtn:hover{background:var(--surface)}
+#mapColorsBtn.active,#dotAppearanceBtn.active{border-color:var(--accent2);color:var(--accent2)}
+body.night-mode #mapColorsBtn,body.night-mode #dotAppearanceBtn{background:rgba(20,24,32,.85)}
+/* On devices with a real mouse, keep these buttons icon-only until hovered,
+   then reveal the label text. Touch devices (no hover) keep the label
+   always visible since there's no hover state to expand it. */
+@media (hover:hover) and (pointer:fine){
+  #mapColorsBtn,#dotAppearanceBtn{gap:0}
+  #mapColorsBtn .btn-label,#dotAppearanceBtn .btn-label{display:inline-block;max-width:0;margin-left:0;opacity:0;overflow:hidden;white-space:nowrap;transition:max-width .25s ease,opacity .2s ease,margin-left .25s ease}
+  #mapColorsBtn:hover .btn-label,#mapColorsBtn:focus-visible .btn-label,#mapColorsBtn.active .btn-label,
+  #dotAppearanceBtn:hover .btn-label,#dotAppearanceBtn:focus-visible .btn-label,#dotAppearanceBtn.active .btn-label{max-width:150px;margin-left:5px;opacity:1}
+}
 /* Mobile-only control to hide/show the below-map cities panel so the map can
    take up most of the screen. Hidden on desktop (the panel always shows
    there); only revealed and positioned inside the mobile media query below.
    (Not placed near the top of the map — that area sits underneath the
    session/status bars, which render above the map and would hide it.) */
 #panelToggleBtn{display:none;position:absolute;font-size:12px;font-weight:600;color:var(--text2);background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:7px;padding:6px 11px;cursor:pointer;z-index:6}
-#mapColorsPopover{position:absolute;bottom:66px;left:10px;z-index:7;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18);width:190px;display:none}
-#mapColorsPopover.open{display:block}
-#mapColorsPopover .pop-title{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em}
-#mapColorsPopover .pop-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+#mapColorsPopover,#dotAppearancePopover{position:absolute;bottom:88px;left:10px;z-index:7;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18);display:none}
+#mapColorsPopover{width:190px}
+#dotAppearancePopover{width:250px}
+#mapColorsPopover.open,#dotAppearancePopover.open{display:block}
+#mapColorsPopover .pop-title,#dotAppearancePopover .pop-title{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em}
+#mapColorsPopover .pop-title-row,#dotAppearancePopover .pop-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+/* Icon-only toggles for Night / Physical mode: the checkbox stays in the DOM
+   (JS still reads and sets .checked) but is visually hidden — the emoji is the
+   whole control, and it lights up in the accent colour when selected. */
+.row.mode-toggles{justify-content:flex-start;gap:4px}
+.mode-toggles{display:flex;align-items:center}
+.mode-toggle{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--bg);cursor:pointer;transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,filter .15s ease,opacity .15s ease}
+.mode-toggle input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.mode-toggle .mode-ico{font-size:17px;line-height:1;filter:grayscale(1);opacity:.55;transition:filter .15s ease,opacity .15s ease}
+.mode-toggle:hover{border-color:var(--accent2)}
+.mode-toggle:hover .mode-ico{opacity:.85}
+.mode-toggle:focus-within{box-shadow:0 0 0 3px rgba(43,76,126,.18)}
+.mode-toggle:has(input:checked){background:var(--accent2);border-color:var(--accent2);box-shadow:0 0 0 2px rgba(43,76,126,.18)}
+.mode-toggle:has(input:checked) .mode-ico{filter:none;opacity:1}
+body.night-mode .mode-toggle:focus-within{box-shadow:0 0 0 3px rgba(111,160,224,.22)}
+body.night-mode .mode-toggle:has(input:checked){box-shadow:0 0 0 2px rgba(111,160,224,.22)}
 .tooltip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;pointer-events:none;display:none;z-index:30;box-shadow:0 2px 8px rgba(0,0,0,.12);line-height:1.6;white-space:nowrap}
 
 /* BELOW-MAP PANEL */
@@ -137,17 +208,17 @@ body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
 #panel{width:var(--pw);height:100%;border-left:2px solid #2b4c7e;background:var(--surface);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;position:relative}
 
 /* TOP SHAPES PANEL — fills the space between the settings and found-cities columns */
-#bestVisual{flex:1 1 300px;min-width:280px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px 16px;gap:10px;background:var(--surface)}
-#bestVisualTitle{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;text-align:center}
-#topShapesList{display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;justify-content:center;align-items:flex-start;width:100%}
-.shape-card{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1 1 0;min-width:0;max-width:160px;padding:10px 6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;position:relative}
-.shape-rank{position:absolute;top:4px;left:6px;font-size:10px;font-weight:800;color:var(--text3)}
+#bestVisual{flex:1 1 300px;min-width:280px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px 24px;gap:16px;background:var(--surface)}
+#bestVisualTitle{font-size:14px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;text-align:center}
+#topShapesList{display:flex;flex-direction:row;flex-wrap:nowrap;gap:14px;justify-content:center;align-items:flex-start;width:100%}
+.shape-card{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1 1 0;min-width:0;max-width:240px;padding:16px 10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:14px;position:relative}
+.shape-rank{position:absolute;top:6px;left:9px;font-size:13px;font-weight:800;color:var(--text3)}
 .shape-icon{width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .shape-icon svg{display:block;width:100%;height:100%}
-.shape-fallback{font-size:52px;line-height:1;opacity:.5}
-.shape-name{font-size:12px;font-weight:700;color:var(--text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.shape-count{font-size:11px;font-weight:600;color:var(--accent2);white-space:nowrap}
-.shape-empty{font-size:12px;color:var(--text3);font-style:italic;text-align:center;padding:10px 6px}
+.shape-fallback{font-size:76px;line-height:1;opacity:.5}
+.shape-name{font-size:16px;font-weight:700;color:var(--text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.shape-count{font-size:13px;font-weight:600;color:var(--accent2);white-space:nowrap}
+.shape-empty{font-size:14px;color:var(--text3);font-style:italic;text-align:center;padding:16px 10px}
 #panelHeader{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;gap:8px;position:sticky;top:0;background:var(--surface);z-index:2}
 #panelTitle{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
 #sortLabel{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap}
@@ -155,26 +226,30 @@ body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
 #foundGrid{display:flex;flex-direction:column;gap:0;position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
 #missedBtn{width:100%;padding:8px;font-size:13px;font-weight:600;background:var(--accent2);color:#fff;border:none;border-radius:8px;cursor:pointer;letter-spacing:.02em}
 #missedBtn:hover{background:#1e3a66}
-.missed-section{display:flex;flex-direction:column;gap:6px}
-.missed-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);padding-bottom:4px;border-bottom:1px solid var(--border)}
-.missed-grid{display:flex;flex-wrap:wrap;gap:5px}
+.missed-section{display:block}
+.missed-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);padding-bottom:4px;border-bottom:1px solid var(--border);cursor:pointer;list-style:none;user-select:none}
+.missed-section-title::-webkit-details-marker{display:none}
+.missed-section-title::before{content:'▸ Reveal — ';color:var(--accent2);font-weight:700}
+.missed-section[open]>.missed-section-title::before{content:'▾ '}
+.missed-section[open]>.missed-section-title{color:var(--text)}
+.missed-grid{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .missed-chip{font-size:12px;padding:3px 9px;border-radius:12px;background:var(--bg);border:1px solid var(--border);color:var(--text);white-space:nowrap}
 .missed-chip.capital{border-color:var(--accent2);color:var(--accent2)}
 .missed-chip.country{border-color:#888;color:#555}
 .missed-chip.big{border-color:var(--accent);color:var(--accent)}
-.toggle-best-list-btn{margin-top:6px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--accent2);background:transparent;border:1px solid var(--border);border-radius:6px;cursor:pointer}
+.toggle-best-list-btn{margin-top:6px;padding:6px 14px;font-size:13px;font-weight:600;color:var(--accent2);background:transparent;border:1px solid var(--border);border-radius:6px;cursor:pointer}
 .toggle-best-list-btn:hover{background:var(--bg)}
-.best-row{display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:12px}
-.best-rank{min-width:16px;font-weight:700;color:var(--text3);font-size:11px;text-align:right;flex-shrink:0}
+.best-row{display:flex;align-items:center;gap:10px;padding:6px 6px;font-size:14px}
+.best-rank{min-width:20px;font-weight:700;color:var(--text3);font-size:13px;text-align:right;flex-shrink:0}
 .best-name{flex:1;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.best-count{font-size:11px;font-weight:700;color:var(--accent2);white-space:nowrap;flex-shrink:0}
-.best-empty{padding:4px 0;font-size:12px;color:var(--text3);font-style:italic}
-.stat-row{display:flex;align-items:baseline;justify-content:space-between;padding:3px 4px;font-size:12px;gap:6px;border-radius:5px}
+.best-count{font-size:13px;font-weight:700;color:var(--accent2);white-space:nowrap;flex-shrink:0}
+.best-empty{padding:6px 0;font-size:14px;color:var(--text3);font-style:italic}
+.stat-row{display:flex;align-items:baseline;justify-content:space-between;padding:7px 8px;font-size:15px;gap:10px;border-radius:7px}
 .stat-row.stat-complete{align-items:center;background:rgba(250,204,21,.22)}
 .stat-label{color:var(--text2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px;min-width:0}
-.stat-val{font-weight:700;color:var(--accent2);white-space:nowrap;flex-shrink:0}
-.stat-pct{font-size:10px;color:var(--text3);white-space:nowrap;flex-shrink:0;min-width:36px;text-align:right}
-.stat-check{flex-shrink:0;width:15px;height:15px;border-radius:50%;background:#facc15;color:#7a5b00;font-size:10px;font-weight:900;line-height:15px;text-align:center;box-shadow:0 0 0 1px rgba(122,91,0,.25)}
+.stat-val{font-weight:700;color:var(--accent2);white-space:nowrap;flex-shrink:0;font-size:16px}
+.stat-pct{font-size:12px;color:var(--text3);white-space:nowrap;flex-shrink:0;min-width:42px;text-align:right}
+.stat-check{flex-shrink:0;width:19px;height:19px;border-radius:50%;background:#facc15;color:#7a5b00;font-size:12px;font-weight:900;line-height:19px;text-align:center;box-shadow:0 0 0 1px rgba(122,91,0,.25)}
 .fi{font-size:12px;padding:6px 8px 6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;width:100%;background:#eef3fb;flex-shrink:0}
 .fi.fi-is-capital{background:#d4e4f7}
 .fi:hover{background:var(--bg)}
@@ -232,7 +307,10 @@ body.night-mode #mapColorsBtn{background:rgba(20,24,32,.85)}
 .lbl{font-size:12px;color:var(--text);flex-shrink:0}
 select{flex:1;height:27px;padding:0 5px;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--text);font-size:12px;max-width:145px}
 input[type=range]{flex:1;accent-color:var(--accent2);cursor:pointer}
-input[type=color]{width:30px;height:25px;padding:1px;border:1px solid var(--border);border-radius:5px;cursor:pointer;background:var(--bg)}
+input[type=color]{width:30px;height:25px;padding:0;border:1px solid var(--border);border-radius:5px;cursor:pointer;background:var(--bg);overflow:hidden;flex-shrink:0}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:4px}
+input[type=color]::-moz-color-swatch{border:none;border-radius:4px}
 input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;height:14px}
 .val-badge{font-size:11px;color:var(--text2);min-width:32px;text-align:right;flex-shrink:0}
 .scale-presets{display:flex;gap:5px;margin-top:4px;width:100%}
@@ -243,7 +321,7 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
 .reset-icon-btn:hover{border-color:var(--accent2);color:var(--accent2)}
 
 /* ── SESSION SYSTEM ── */
-#sessionBar{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--glass);backdrop-filter:blur(6px) saturate(1.3);-webkit-backdrop-filter:blur(6px) saturate(1.3);border-bottom:1px solid var(--glass-border);flex-shrink:0;font-size:12px;position:relative;z-index:10}
+#sessionBar{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--glass);backdrop-filter:blur(6px) saturate(1.3);-webkit-backdrop-filter:blur(6px) saturate(1.3);border-bottom:1px solid var(--glass-border);flex-shrink:0;font-size:12px;position:relative;z-index:30}
 #sessionBar .sess-label{color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
 #sessionName{font-weight:700;color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;cursor:pointer;padding:2px 5px;border-radius:4px}
 #sessionName:hover{background:rgba(43,76,126,.08)}
@@ -286,7 +364,6 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
 .radio-group{display:flex;flex-direction:column;gap:5px}
 .radio-row{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer}
 .radio-row input{accent-color:var(--accent2)}
-#countrySelect{width:100%;height:27px;padding:0 5px;border:1px solid var(--border);border-radius:5px;background:var(--bg);font-size:12px;color:var(--text);margin-top:5px;max-width:100%}
 
 /* ══════════════════════════════════════════════════════════════════════════
    PHONE LAYOUT — everything below only applies on narrow / touch screens.
@@ -321,8 +398,12 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
   #sessManagerBtn{margin-left:auto;order:3}
   #inputControls{order:4;flex-basis:100%;width:100%;flex-wrap:wrap;row-gap:8px}
   #cityInputWrap{flex:1 1 100%;width:100%;height:44px}
-  #cityInput{font-size:16px;padding-right:96px}
-  #regionSelect{width:82px;font-size:11px}
+  #cityInput{font-size:16px;padding-right:126px}
+  #countryFilterBtn{width:118px;font-size:11px}
+  #countryFilterPanel{width:200px;max-height:240px}
+  #mapPickBtn{height:30px;order:2}
+  #mapBox{width:94vw;max-height:88dvh}
+  .map-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
   #guessBtn{flex:1 1 0;height:42px;font-size:14px}
   #clearBtn{flex:1 1 0;height:42px;font-size:14px}
 
@@ -334,11 +415,14 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
      nudged clear of any notch/home-indicator safe areas */
   .zbtn-wrap{bottom:calc(12px + env(safe-area-inset-bottom));right:calc(10px + env(safe-area-inset-right));gap:6px}
   .zbtn{width:42px;height:42px;font-size:20px}
-  #zoomInfoWrap{bottom:calc(12px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));gap:8px}
+  #resetViewBtn svg{width:20px;height:20px}
   #zoomLbl{font-size:12px;padding:4px 8px}
-  #resetViewBtn{font-size:12px;padding:5px 10px}
-  #mapColorsBtn{bottom:calc(56px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));font-size:12px;padding:5px 10px}
-  #mapColorsPopover{bottom:calc(90px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left));width:min(220px,80vw)}
+  #mapColorsBtn,#dotAppearanceBtn{left:calc(10px + env(safe-area-inset-left));font-size:13px;padding:8px 13px}
+  #mapColorsBtn{bottom:calc(12px + env(safe-area-inset-bottom))}
+  #dotAppearanceBtn{bottom:calc(60px + env(safe-area-inset-bottom))}
+  #mapColorsPopover,#dotAppearancePopover{bottom:calc(108px + env(safe-area-inset-bottom));left:calc(10px + env(safe-area-inset-left))}
+  #mapColorsPopover{width:min(220px,80vw)}
+  #dotAppearancePopover{width:min(250px,85vw)}
   .tooltip{display:none !important} /* hover tooltips have no touch equivalent; avoid a stuck ghost tooltip */
 
   /* Found-cities panel keeps its own internal scroll so the settings below
@@ -351,16 +435,19 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
   .sec-title{padding:12px}
   .sec-body{padding:12px}
   .radio-row,.lbl{font-size:13px}
-  select,#countrySelect{height:34px;font-size:13px}
+  select{height:34px;font-size:13px}
+
   input[type=checkbox]{width:18px;height:18px}
   input[type=color]{width:38px;height:32px}
   .scale-preset-btn{padding:8px 0;font-size:12px}
+  .mode-toggle{width:42px;height:42px}
+  .mode-toggle .mode-ico{font-size:20px}
 
   /* Top-shapes / country cards: wrap to a small grid instead of squeezing */
   #topShapesList{flex-wrap:wrap}
-  .shape-card{flex:1 1 27%;max-width:110px}
-  .shape-icon{max-width:64px}
-  .shape-fallback{font-size:36px}
+  .shape-card{flex:1 1 27%;max-width:150px}
+  .shape-icon{max-width:88px}
+  .shape-fallback{font-size:48px}
 
   /* General: comfortable tap targets everywhere else */
   .tbbtn{height:38px;font-size:13px}
@@ -378,6 +465,32 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
   .sess-badge{display:none} /* reclaim space on very small phones */
   .shape-card{flex:1 1 40%}
 }
+
+/* JAPAN LOVE MESSAGE — big centered banner shown briefly when the Japan map loads */
+#japanLoveMsg{
+  position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;pointer-events:none;padding:20px;text-align:center;
+}
+#japanLoveMsg .jlm-text{
+  font-size:clamp(28px,7vw,72px);font-weight:800;
+  background:linear-gradient(90deg,#d85a30,#ff8a5c);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  -webkit-text-stroke:3px #fff;paint-order:stroke fill;
+  text-shadow:0 2px 4px rgba(0,0,0,.35);
+  animation:japanLoveFade 5s ease forwards;
+}
+#japanLoveMsg .jlm-heart{
+  font-size:clamp(40px,10vw,96px);line-height:1;
+  color:#ff4d6d;-webkit-text-stroke:3px #fff;paint-order:stroke fill;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));
+  animation:japanLoveFade 5s ease forwards;
+}
+@keyframes japanLoveFade{
+  0%{opacity:0;transform:scale(.85)}
+  8%{opacity:1;transform:scale(1)}
+  85%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(1.05)}
+}
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -390,23 +503,38 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
   <div id="sessionBar">
     <span id="sessionName" title="Click to rename">Untitled Session</span>
     <span id="sessBadge" class="sess-badge active">● Active</span>
+    <button type="button" id="mapPickBtn" title="Map selection — pick which map you are playing on">
+      <span id="mapPickDot"></span>🗺 <span id="mapPickLabel">World</span>
+    </button>
+    <!-- The region <select> is kept (hidden) as the single source of truth for
+         which maps exist; the map picker modal is generated from its options. -->
+    <select id="regionSelect" style="display:none" title="Region — only cities from the selected region are accepted">
+      <optgroup label="Continents">
+        <option value="world">World</option>
+        <option value="europe">Europe</option>
+        <option value="north_america">North America</option>
+        <option value="south_america">South America</option>
+        <option value="africa">Africa</option>
+        <option value="asia">Asia</option>
+        <option value="oceania">Oceania</option>
+      </optgroup>
+      <optgroup label="Countries">
+        <option value="usa">United States</option>
+        <option value="japan">Japan</option>
+      </optgroup>
+    </select>
     <div id="inputControls">
       <div id="cityInputWrap">
         <input id="cityInput" type="text" placeholder="Type a city name and press Enter…" autocomplete="off" spellcheck="false" enterkeyhint="go"/>
-        <select id="regionSelect" title="Region — only cities from the selected region are accepted">
-          <optgroup label="Continents">
-            <option value="world">World</option>
-            <option value="europe">Europe</option>
-            <option value="north_america">North America</option>
-            <option value="south_america">South America</option>
-            <option value="africa">Africa</option>
-            <option value="asia">Asia</option>
-            <option value="oceania">Oceania</option>
-          </optgroup>
-          <optgroup label="Countries">
-            <option value="usa">United States</option>
-          </optgroup>
-        </select>
+        <button type="button" id="countryFilterBtn" title="Country filter — which country a guessed city must belong to">
+          <span id="cfBtnLabel">Any country</span><span id="cfCaret"></span>
+        </button>
+        <div id="countryFilterPanel">
+          <button type="button" class="cf-opt" data-val="any">Any country</button>
+          <button type="button" class="cf-opt" data-val="every">Every country</button>
+          <div class="cf-sep">Specific country</div>
+          <div id="cfCountryList"><div class="cf-empty">— load data first —</div></div>
+        </div>
       </div>
       <button class="tbbtn primary" id="guessBtn">Find</button>
       <button class="tbbtn danger" id="clearBtn">🗑 Clear all</button>
@@ -458,20 +586,43 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
          in JS (see NIGHT CANVAS section). -->
     <canvas id="nightCanvas"></canvas>
     <div class="zbtn-wrap">
+      <div id="zoomLbl">100%</div>
       <button class="zbtn" id="zoomIn">+</button>
       <button class="zbtn" id="zoomOut">−</button>
+      <button class="zbtn" id="resetViewBtn" title="Reset view"><svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M16.5 10a6.5 6.5 0 1 1-2.1-4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.8 3.5v4.2h-4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
-    <div id="zoomInfoWrap">
-      <div id="zoomLbl">100%</div>
-      <button id="resetViewBtn">Reset view</button>
-    </div>
-    <button type="button" id="mapColorsBtn" title="Map settings">🗺 Map settings</button>
+    <button type="button" id="dotAppearanceBtn" title="Dot appearance"><svg width="15" height="15" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><defs><clipPath id="ballClipBtn"><circle cx="10" cy="10" r="9"/></clipPath><radialGradient id="ballGlossBtn" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#fff" stop-opacity="0.6"/><stop offset="45%" stop-color="#fff" stop-opacity="0.1"/><stop offset="100%" stop-color="#000" stop-opacity="0.2"/></radialGradient></defs><g clip-path="url(#ballClipBtn)"><rect x="0" y="0" width="20" height="20" fill="#f4c531"/><path d="M10 10 L20 10 A10 10 0 0 1 10 20 Z" fill="#3fb84f"/><path d="M10 10 L10 20 A10 10 0 0 1 0 10 Z" fill="#3b82f6"/><path d="M10 10 L0 10 A10 10 0 0 1 10 0 Z" fill="#e63946"/></g><circle cx="10" cy="10" r="9" fill="url(#ballGlossBtn)"/></svg> <span class="btn-label">Dot appearance</span></button>
+    <button type="button" id="mapColorsBtn" title="Map settings">🗺 <span class="btn-label">Map settings</span></button>
     <button type="button" id="panelToggleBtn" title="Hide/show the city list">▾ Hide list</button>
     <div id="mapColorsPopover">
       <div class="pop-title-row"><span class="pop-title">🗺 Map Settings</span><button type="button" id="resetMapColors" class="reset-icon-btn" title="Reset map colours">↺</button></div>
       <div class="row"><span class="lbl">Land</span><input type="color" id="landColor" value="#e8e4da"/></div>
       <div class="row"><span class="lbl">Sea</span><input type="color" id="seaColor" value="#c8dff0"/></div>
       <div class="row"><span class="lbl">Borders</span><input type="color" id="borderColor" value="#aaaaaa"/></div>
+    </div>
+    <div id="dotAppearancePopover">
+      <div class="pop-title-row"><span class="pop-title"><svg width="12" height="12" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-1px"><defs><clipPath id="ballClipPop"><circle cx="10" cy="10" r="9"/></clipPath><radialGradient id="ballGlossPop" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#fff" stop-opacity="0.6"/><stop offset="45%" stop-color="#fff" stop-opacity="0.1"/><stop offset="100%" stop-color="#000" stop-opacity="0.2"/></radialGradient></defs><g clip-path="url(#ballClipPop)"><rect x="0" y="0" width="20" height="20" fill="#f4c531"/><path d="M10 10 L20 10 A10 10 0 0 1 10 20 Z" fill="#3fb84f"/><path d="M10 10 L10 20 A10 10 0 0 1 0 10 Z" fill="#3b82f6"/><path d="M10 10 L0 10 A10 10 0 0 1 10 0 Z" fill="#e63946"/></g><circle cx="10" cy="10" r="9" fill="url(#ballGlossPop)"/></svg> Dot Appearance</span></div>
+      <div class="row mode-toggles">
+        <label class="mode-toggle" title="Night mode" aria-label="Night mode"><input type="checkbox" id="nightMode"><span class="mode-ico">🌙</span></label>
+        <label class="mode-toggle" title="Physical mode" aria-label="Physical mode"><input type="checkbox" id="physicalMode"><span class="mode-ico">🛰️</span></label>
+        <label class="mode-toggle" title="Pin mode" aria-label="Pin mode"><input type="checkbox" id="pinMode"><span class="mode-ico">📍</span></label>
+      </div>
+      <div class="row" id="dotColorRow">
+        <span class="lbl">Colour</span>
+        <input type="color" id="dotColor" value="#cb6543"/>
+        <span class="val-badge" id="dotAlphaVal">75%</span>
+        <input type="range" id="dotAlpha" min="10" max="100" value="75" style="max-width:68px"/>
+        <button type="button" id="resetDotColorAlpha" class="reset-icon-btn" title="Reset colour &amp; opacity">↺</button>
+      </div>
+      <div class="row">
+        <span class="lbl">Dot size</span>
+      </div>
+      <div class="scale-presets" id="dotSizePresets">
+        <button type="button" class="scale-preset-btn active" data-size-mode="normal">Normal</button>
+        <button type="button" class="scale-preset-btn" data-size-mode="small">Small</button>
+        <button type="button" class="scale-preset-btn" data-size-mode="smaller">Smaller</button>
+        <button type="button" class="scale-preset-btn" data-size-mode="tiny">Tiny</button>
+      </div>
     </div>
     <div class="tooltip" id="tooltip"></div>
   </div>
@@ -497,9 +648,9 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
     <div id="bestVisualTitle">Top Countries</div>
     <div id="topShapesList"></div>
     <button type="button" id="toggleBestListBtn" class="toggle-best-list-btn" style="display:none">Show full list ▾</button>
-    <div id="bestList" style="width:100%;max-width:520px;margin-top:4px;display:none"></div>
+    <div id="bestList" style="width:100%;margin-top:4px;display:none"></div>
 
-    <div id="otherStatsList" style="width:100%;max-width:520px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"></div>
+    <div id="otherStatsList" style="width:100%;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"></div>
 
     <div id="missedBtnWrap" style="display:none;width:100%;max-width:520px;margin-top:6px">
       <button id="missedBtn">🔍 What did I miss?</button>
@@ -516,50 +667,21 @@ input[type=checkbox]{accent-color:var(--accent2);cursor:pointer;width:14px;heigh
     <div id="foundGrid"></div>
     <input type="file" id="fileInput" accept=".xlsx,.txt,.tsv" style="display:none"/>
 
-    <div id="settings">
-      <div id="settingsInner">
-      <div class="sec sec-collapsible open" id="sec-countryfilter">
-        <div class="sec-title" onclick="toggleSec('sec-countryfilter')">🌐 Country Filter <span class="sec-arrow">▼</span></div>
-        <div class="sec-body">
-          <div class="radio-group">
-            <label class="radio-row"><input type="radio" name="cmode" value="any" checked> Any country</label>
-            <label class="radio-row"><input type="radio" name="cmode" value="every"> Every country</label>
-            <label class="radio-row"><input type="radio" name="cmode" value="specific"> Specific country:</label>
-          </div>
-          <select id="countrySelect" disabled><option value="">— load data first —</option></select>
-        </div>
-      </div>
-      <div class="sec sec-collapsible" id="secDots">
-        <div class="sec-title" onclick="toggleSec('secDots')">⚪ Dot Appearance <span class="sec-arrow">▼</span></div>
-        <div class="sec-body">
-          <div class="row">
-            <label class="radio-row" style="gap:6px"><input type="checkbox" id="nightMode"> 🌙 Night mode</label>
-          </div>
-          <div class="row">
-            <label class="radio-row" style="gap:6px"><input type="checkbox" id="physicalMode"> 🛰️ Physical mode</label>
-          </div>
-          <div class="row">
-            <span class="lbl">Colour</span>
-            <input type="color" id="dotColor" value="#cb6543"/>
-            <span class="val-badge" id="dotAlphaVal">75%</span>
-            <input type="range" id="dotAlpha" min="10" max="100" value="75" style="max-width:68px"/>
-            <button type="button" id="resetDotColorAlpha" class="reset-icon-btn" title="Reset colour &amp; opacity">↺</button>
-          </div>
-          <div class="row">
-            <span class="lbl">Dot size</span>
-          </div>
-          <div class="scale-presets" id="dotSizePresets">
-            <button type="button" class="scale-preset-btn active" data-size-mode="normal">Normal</button>
-            <button type="button" class="scale-preset-btn" data-size-mode="small">Small</button>
-            <button type="button" class="scale-preset-btn" data-size-mode="smaller">Smaller</button>
-            <button type="button" class="scale-preset-btn" data-size-mode="tiny">Tiny</button>
-          </div>
-        </div>
-      </div>
-      </div><!-- end settingsInner -->
-    </div>
+    <!-- The country filter that used to live here now sits inside the typing bar. -->
+    <div id="settings" style="display:none"><div id="settingsInner"></div></div>
   </div>
 </div><!-- end appRow -->
+
+<!-- MAP SELECTION MODAL -->
+<div id="mapModal">
+  <div id="mapBox">
+    <div id="mapBoxHead">
+      <h2>🗺 Map selection</h2>
+      <button id="mapClose">✕</button>
+    </div>
+    <div id="mapList"></div>
+  </div>
+</div>
 
 <!-- MISSED CITIES MODAL -->
 <div id="missedModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center">
@@ -662,6 +784,15 @@ const REGIONS = {
     clip: null,
     countries: ['US'],
   },
+  japan: {
+    label:'Japan', color:'#AD1457',
+    makeProj: (W,H) => d3.geoMercator().center([138, 37]).scale(Math.min(W,H)*2.6).translate([W/2, H/2]),
+    clip: [122, 24, 154, 46],
+    countries: ['JP'],
+    // Restrict rendered land to Japan itself, so no neighbouring coastline
+    // (Korea, Russia's Far East, Taiwan) bleeds in at the clip box's edges.
+    strictCountries: true,
+  },
 };
 
 // A city counts as "in" a region if its country is on the region's country
@@ -692,7 +823,17 @@ const S = {
   countryMode:'any', specificCountry:'',
   nightMode:false, _preNight:null, // _preNight: colours saved when night mode is switched on, restored when switched off
   physicalMode:false, // shows a real satellite-image basemap instead of flat land/sea colours
+  pinMode:false, // Pin mode: dots render as 3D-style map pins instead of flat circles
 };
+
+// Fixed 4-colour palette for Pin mode — ball fill and a darker shade of the
+// same hue for the shaft, so the pin reads as one coherent solid object. Each
+// pin gets one of these at random (equal 25% odds) the moment it's placed —
+// there's no user-facing colour picker; see randomPinColorKey / addDot.
+const PIN_COLORS = { red:'#e63946', yellow:'#f4c531', blue:'#3b82f6', green:'#3fb84f' };
+const PIN_COLORS_DARK = { red:'#9c2530', yellow:'#b8901f', blue:'#28568a', green:'#2c8a3a' };
+const PIN_COLOR_KEYS = Object.keys(PIN_COLORS);
+function randomPinColorKey() { return PIN_COLOR_KEYS[Math.floor(Math.random() * PIN_COLOR_KEYS.length)]; }
 
 // Preset used when Night mode is enabled — sea darker than land, and warm
 // bright dots so cities read like lights photographed from space.
@@ -740,6 +881,50 @@ function dotR(pop) {
   if (modeCfg.uniform) return Math.max(0.15, modeCfg.r * scaleFactor);
   const base = logPopR(pop) * modeCfg.scale;
   return Math.max(modeCfg.floor, base * scaleFactor);
+}
+
+// ─── PIN MODE (3D-style pin markers) ───────────────────────────────────────
+// Same population-driven radius as the flat dot (dotR) scaled up into a
+// pushpin: a round "ball" head offset up and slightly sideways from the
+// actual location (perspective lean), connected by a thin shaft, with a
+// soft ground shadow at the anchor point and a white gloss highlight on the
+// ball to read as a glossy sphere.
+function pinGeom(pop) {
+  const ballR = Math.max(0.9, dotR(pop) * 1.6);
+  return { ballR, shaftLen: ballR * 1.9, lean: ballR * 0.55 };
+}
+// (Re)position every element of one city's pin group at its anchor point.
+function applyPinGeom(pg, cx, cy, pop) {
+  const g = pinGeom(pop);
+  const bx = cx + g.lean, by = cy - g.shaftLen;
+  pg.select('.pin-shadow').attr('cx', cx).attr('cy', cy).attr('rx', g.ballR * 0.5).attr('ry', g.ballR * 0.2);
+  pg.select('.pin-shaft').attr('x1', cx).attr('y1', cy).attr('x2', bx).attr('y2', by).attr('stroke-width', Math.max(0.35, g.ballR * 0.28));
+  pg.select('.pin-ball').attr('cx', bx).attr('cy', by).attr('r', g.ballR).attr('data-pop', pop || 0);
+  pg.select('.pin-gloss').attr('cx', bx - g.ballR * 0.32).attr('cy', by - g.ballR * 0.35).attr('rx', g.ballR * 0.34).attr('ry', g.ballR * 0.22);
+}
+// Apply this pin's own already-assigned colour (stored on the group as
+// data-pin-color when it was first placed — see addDot) to its elements.
+function applyPinColorTo(pg) {
+  const key = pg.attr('data-pin-color') || 'red';
+  pg.select('.pin-ball').attr('fill', PIN_COLORS[key] || PIN_COLORS.red);
+  pg.select('.pin-shaft').attr('stroke', PIN_COLORS_DARK[key] || PIN_COLORS_DARK.red);
+}
+// Re-apply every pin's own colour (called when Pin mode is toggled on, etc).
+function applyPinStyles() {
+  svg.selectAll('.city-dot .pin-group').each(function(){ applyPinColorTo(d3.select(this)); });
+}
+// Re-position every pin (called alongside refreshDotSizes when the dot-size
+// preset or region scale changes, since pin size/lean/shaft all derive from
+// the same population-based radius).
+function refreshPinGeom() {
+  svg.selectAll('.city-dot').each(function(){
+    const dg = d3.select(this);
+    const pg = dg.select('.pin-group');
+    if (pg.empty()) return;
+    const main = dg.select('circle.main-dot');
+    const cx = +main.attr('cx'), cy = +main.attr('cy'), pop = +main.attr('data-pop');
+    applyPinGeom(pg, cx, cy, pop);
+  });
 }
 
 // ─── SVG / ZOOM ───────────────────────────────────────────────────────────────
@@ -882,7 +1067,7 @@ function getMapSize() {
 // ─── MAP DATA (multiple resolutions) ─────────────────────────────────────────
 // 110m = lightweight, used for world view
 // 50m  = detailed coastlines, used for all regional (non-world) views
-const geoCache = { '110m': null, '50m': null, 'us-states': null, 'us-counties': null };
+const geoCache = { '110m': null, '50m': null, 'us-states': null, 'us-counties': null, 'japan-prefs': null };
 
 async function getGeoData(res) {
   if (geoCache[res]) return geoCache[res];
@@ -891,15 +1076,20 @@ async function getGeoData(res) {
     '110m':       'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
     'us-states':  'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json',
     'us-counties':'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json',
+    // Prefecture-level Japan boundaries (all 47 prefectures, each a MultiPolygon
+    // so every outlying island — Hokkaido, Okinawa, the Izu/Amami chains,
+    // Tsushima, Sado, etc. — is included, not just the four main islands the
+    // low-res world atlas roughly traces).
+    'japan-prefs':'https://cdn.jsdelivr.net/gh/dataofjapan/land@master/japan.topojson',
   };
   geoCache[res] = await fetch(urls[res]).then(r => r.json());
   return geoCache[res];
 }
 
-// Pre-fetch 110m immediately so world loads fast; kick off 50m + US data in background
+// Pre-fetch 110m immediately so world loads fast; kick off 50m + US/Japan data in background
 getGeoData('110m');
 setTimeout(() => getGeoData('50m'), 800);
-setTimeout(() => { getGeoData('us-states'); getGeoData('us-counties'); }, 1200);
+setTimeout(() => { getGeoData('us-states'); getGeoData('us-counties'); getGeoData('japan-prefs'); }, 1200);
 
 // A handful of tiny multi-island countries in the high-res 10m atlas (e.g. the
 // Maldives) have a few individual polygons whose ring winding is backwards.
@@ -1026,11 +1216,17 @@ function clipLineByLon(coords, lonThreshold, keepEast) {
 }
 
 async function drawMap(regionKey) {
+  const prevRegion = currentRegion;
   currentRegion = regionKey;
   const region = REGIONS[regionKey];
   const isWorld = regionKey === 'world';
   const isUSA = regionKey === 'usa';
+  const isJapan = regionKey === 'japan';
   const res = isWorld ? '110m' : '50m';
+
+  // Show the "I LOVE YOU NASTYA" banner whenever the Japan map is (re)loaded —
+  // but not on every resize-triggered redraw while already viewing it.
+  if (isJapan && prevRegion !== 'japan') showJapanLoveMessage();
 
 
 
@@ -1038,6 +1234,8 @@ async function drawMap(regionKey) {
   // Pre-fetch US states + counties data for the USA mode
   const usStatesData   = isUSA ? await getGeoData('us-states')   : null;
   const usCountiesData = isUSA ? await getGeoData('us-counties') : null;
+  // Pre-fetch prefecture-level Japan data for the Japan mode
+  const japanPrefData  = isJapan ? await getGeoData('japan-prefs') : null;
 
   const [W, H] = getMapSize();
   svg.attr('viewBox', `0 0 ${W} ${H}`);
@@ -1069,8 +1267,8 @@ async function drawMap(regionKey) {
       .attr('fill', S.seaColor);
   }
 
-  // Land + borders — skip world-atlas land for USA (use high-res county shapes instead)
-  if (!isUSA) {
+  // Land + borders — skip world-atlas land for USA/Japan (use their own high-res shapes instead)
+  if (!isUSA && !isJapan) {
     let countryFeatures = topojson.feature(geoData, geoData.objects.countries).features;
     countryFeatures.forEach(fixInvertedWinding);
     // Several disputed territories (Kosovo, Northern Cyprus, Somaliland...)
@@ -1219,6 +1417,31 @@ async function drawMap(regionKey) {
     // Outer US border (slightly bolder)
     const nationMesh = topojson.mesh(usStatesData, usStatesData.objects.states, (a,b) => a === b);
     g.append('path').attr('id','nation-border').datum(nationMesh).attr('d', path)
+      .attr('fill','none').attr('stroke', S.borderColor).attr('stroke-width', 0.9);
+  }
+
+  // Japan mode: draw all 47 prefectures (each a MultiPolygon, so every
+  // outlying island is included) + prefecture borders using the region's
+  // own Mercator projection
+  if (isJapan && japanPrefData) {
+    const prefFeatures = topojson.feature(japanPrefData, japanPrefData.objects.japan).features;
+    g.select('#countries-g').selectAll('path')
+      .data(prefFeatures).join('path')
+      .attr('d', path)
+      .attr('fill', S.landColor)
+      .attr('stroke', S.borderColor)
+      .attr('stroke-width', 0.15)
+      .attr('stroke-opacity', 0.4);
+
+    // Prefecture borders (internal)
+    const prefMesh = topojson.mesh(japanPrefData, japanPrefData.objects.japan, (a,b) => a !== b);
+    g.append('path').attr('id','pref-borders').datum(prefMesh).attr('d', path)
+      .attr('fill','none').attr('stroke', S.borderColor).attr('stroke-width', 0.5)
+      .attr('stroke-opacity', 0.8);
+
+    // Outer national border (slightly bolder)
+    const jpNationMesh = topojson.mesh(japanPrefData, japanPrefData.objects.japan, (a,b) => a === b);
+    g.append('path').attr('id','nation-border-jp').datum(jpNationMesh).attr('d', path)
       .attr('fill','none').attr('stroke', S.borderColor).attr('stroke-width', 0.9);
   }
 
@@ -1569,6 +1792,8 @@ async function updatePhysicalLayer(g, W, H) {
     g.select('#borders-path').attr('stroke', S.borderColor);
     g.select('#state-borders').attr('stroke', S.borderColor);
     g.select('#nation-border').attr('stroke', S.borderColor);
+    g.select('#pref-borders').attr('stroke', S.borderColor);
+    g.select('#nation-border-jp').attr('stroke', S.borderColor);
     document.getElementById('mapWrap').style.background = S.seaColor;
     return;
   }
@@ -1577,6 +1802,8 @@ async function updatePhysicalLayer(g, W, H) {
   g.select('#borders-path').attr('stroke', 'none');
   g.select('#state-borders').attr('stroke', 'none');
   g.select('#nation-border').attr('stroke', 'none');
+  g.select('#pref-borders').attr('stroke', 'none');
+  g.select('#nation-border-jp').attr('stroke', 'none');
   document.getElementById('mapWrap').style.background = '#05070c';
   setMsg('Loading satellite imagery…', 'info');
   try {
@@ -1594,6 +1821,8 @@ async function updatePhysicalLayer(g, W, H) {
     g.select('#borders-path').attr('stroke', S.borderColor);
     g.select('#state-borders').attr('stroke', S.borderColor);
     g.select('#nation-border').attr('stroke', S.borderColor);
+    g.select('#pref-borders').attr('stroke', S.borderColor);
+    g.select('#nation-border-jp').attr('stroke', S.borderColor);
     document.getElementById('mapWrap').style.background = S.seaColor;
   }
 }
@@ -1739,26 +1968,13 @@ function finaliseCityDB(swappedCount) {
 
   const cset = new Set(cityDB.map(c=>c.country));
   countriesList = [...cset].sort((a,b) => fmtCountry(a).localeCompare(fmtCountry(b)));
-  const sel = document.getElementById('countrySelect');
-  sel.innerHTML = '';
-  countriesList.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c;
-    o.textContent = fmtCountry(c);
-    sel.appendChild(o);
-  });
+  populateCountryFilterOptions();
   // Always reset to 'any' on file load — avoids stale 'specific' filter locking out all results
   S.countryMode = 'any';
-  if (countriesList.length) {
-    if (!S.specificCountry || !countriesList.includes(S.specificCountry)) {
-      S.specificCountry = countriesList[0];
-    }
-    sel.value = S.specificCountry;
+  if (countriesList.length && (!S.specificCountry || !countriesList.includes(S.specificCountry))) {
+    S.specificCountry = countriesList[0];
   }
-  // Sync radio buttons and countrySelect enabled state
-  const modeRadio = document.querySelector('input[name="cmode"][value="any"]');
-  if (modeRadio) modeRadio.checked = true;
-  sel.disabled = true;
+  syncCountryFilterUI();
   renderFoundGrid(); // swap the empty-state "Load data file" button for the plain city prompt now that data is loaded
 
   const swapNote = swappedCount > 0 ? ` (auto-fixed ${swappedCount} swapped lat/lon)` : '';
@@ -2116,6 +2332,62 @@ for (const [abbr, name] of Object.entries(US_STATES)) {
   US_STATE_LOOKUP.set(name.toLowerCase(), abbr);
 }
 
+// ─── JAPAN PREFECTURE CAPITALS ────────────────────────────────────────────────
+// Prefectural government seat (県庁所在地) for each of the 47 prefectures, keyed
+// by the standard JIS X 0401 / GeoNames admin1 numeric code — the same
+// numbering the japan.topojson prefecture ids use (see JAPAN MAP section).
+// Several differ from their prefecture's own name (Hokkaido→Sapporo,
+// Ibaraki→Mito, Kanagawa→Yokohama, Aichi→Nagoya, Hyogo→Kobe, Okinawa→Naha…).
+const JP_PREF_CAPITAL_NAMES = {
+  1:'sapporo', 2:'aomori', 3:'morioka', 4:'sendai', 5:'akita', 6:'yamagata',
+  7:'fukushima', 8:'mito', 9:'utsunomiya', 10:'maebashi', 11:'saitama',
+  12:'chiba', 13:'tokyo', 14:'yokohama', 15:'niigata', 16:'toyama',
+  17:'kanazawa', 18:'fukui', 19:'kofu', 20:'nagano', 21:'gifu', 22:'shizuoka',
+  23:'nagoya', 24:'tsu', 25:'otsu', 26:'kyoto', 27:'osaka', 28:'kobe',
+  29:'nara', 30:'wakayama', 31:'tottori', 32:'matsue', 33:'okayama',
+  34:'hiroshima', 35:'yamaguchi', 36:'tokushima', 37:'takamatsu',
+  38:'matsuyama', 39:'kochi', 40:'fukuoka', 41:'saga', 42:'nagasaki',
+  43:'kumamoto', 44:'oita', 45:'miyazaki', 46:'kagoshima', 47:'naha',
+};
+// Reverse lookup: folded capital name -> prefecture id — used to check a
+// found city is BOTH named right AND actually filed under that prefecture
+// (mirrors how US_STATE_CAPITALS double-checks admin1, not just the name).
+const JP_PREF_CAPITAL_BY_NAME = new Map(
+  Object.entries(JP_PREF_CAPITAL_NAMES).map(([id, name]) => [name, Number(id)])
+);
+// GeoNames numbers Japan's admin1 areas 01–47 ALPHABETICALLY by prefecture
+// name (the old FIPS 10-4 scheme) — e.g. Hokkaido is admin1 "12", Chiba is
+// "04". The japan.topojson boundary data (and JP_PREF_NAMES/CAPITALS above)
+// instead number them 01 Hokkaido … 47 Okinawa, roughly north to south (the
+// standard JIS X 0401 / ISO 3166-2:JP numbering). Without this translation,
+// a found city's raw admin1 code would be matched against the wrong
+// prefecture — e.g. Sapporo (admin1 "12") would wrongly show up under
+// prefecture 12, which is Chiba in the JIS scheme, not Hokkaido.
+const JP_ADMIN1_TO_JISID = {
+  1:23, 2:5, 3:2, 4:12, 5:38, 6:18, 7:40, 8:7, 9:21, 10:10,
+  11:34, 12:1, 13:28, 14:8, 15:17, 16:3, 17:37, 18:46, 19:14, 20:39,
+  21:43, 22:26, 23:24, 24:4, 25:45, 26:20, 27:42, 28:29, 29:15, 30:44,
+  31:33, 32:27, 33:41, 34:11, 35:25, 36:32, 37:22, 38:9, 39:36, 40:13,
+  41:31, 42:16, 43:30, 44:6, 45:35, 46:19, 47:47,
+};
+// Converts a city's raw (GeoNames-alphabetical) admin1 code to the JIS id
+// used everywhere else in the Japan mode — the single function all Japan
+// prefecture-matching code should go through.
+function normalizeJPAdmin1(admin1) {
+  const n = parseInt(admin1, 10);
+  if (!Number.isFinite(n)) return null;
+  return JP_ADMIN1_TO_JISID[n] ?? null;
+}
+// Mirrors the US_STATE_CAPITALS double-check (name AND admin1 must both
+// match) so a same-named city filed under the wrong prefecture doesn't
+// wrongly earn the ★ — used everywhere Japan mode needs to know if a found
+// city is a prefectural capital.
+function isJPPrefCapital(city) {
+  const jisId = JP_PREF_CAPITAL_BY_NAME.get(city.name.toLowerCase());
+  return jisId !== undefined && normalizeJPAdmin1(city.admin1) === jisId;
+}
+
+
 // Returns the US state code (e.g. 'CA') if hint matches a state, else null.
 function matchesUSState(hint) {
   return US_STATE_LOOKUP.get(hint.trim().toLowerCase()) || null;
@@ -2314,19 +2586,53 @@ let nightHoverId = null; // dotId currently under the mouse in Night mode, so dr
 // #cityLightGrad SVG gradient). Drawing this per city each frame is just a
 // scaled image blit — no gradient math, no blur — so cost barely grows with
 // the number of cities on screen.
-const glowSprite = document.createElement('canvas');
-glowSprite.width = glowSprite.height = 128;
-(function initGlowSprite() {
-  const c = glowSprite.getContext('2d');
-  const cx = 64, cy = 64, R = 64;
+//
+// It's pre-rendered at several sizes (a small mip chain), not just one, and
+// in two gradient profiles. "Soft" is the original long, gradual falloff,
+// used for every dot-size preset. "Hard" front-loads the same colours — more
+// of the radius sits near full brightness — and is used only for the Tiny
+// preset: Tiny's footprint is so small that even a modest downscale collapses
+// the soft gradient's narrow bright core to almost nothing, so Tiny still
+// reads as noticeably dimmer than Smaller (as it should — it's a smaller
+// dot) rather than crushed to barely-visible. Picking whichever pre-rendered
+// size is closest to the actual on-screen size (see pickGlowSprite) also
+// keeps the downscale itself mild.
+function makeGlowSprite(size, hard) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const c = canvas.getContext('2d');
+  const cx = size / 2, cy = size / 2, R = size / 2;
   const grad = c.createRadialGradient(cx, cy, 0, cx, cy, R);
-  grad.addColorStop(0,    'rgba(255,246,217,1)');
-  grad.addColorStop(0.18, 'rgba(255,207,107,0.95)');
-  grad.addColorStop(0.45, 'rgba(255,138,60,0.5)');
-  grad.addColorStop(1,    'rgba(255,106,26,0)');
+  if (hard) {
+    grad.addColorStop(0,    'rgba(255,246,217,1)');
+    grad.addColorStop(0.4,  'rgba(255,207,107,0.95)');
+    grad.addColorStop(0.7,  'rgba(255,138,60,0.5)');
+    grad.addColorStop(1,    'rgba(255,106,26,0)');
+  } else {
+    grad.addColorStop(0,    'rgba(255,246,217,1)');
+    grad.addColorStop(0.18, 'rgba(255,207,107,0.95)');
+    grad.addColorStop(0.45, 'rgba(255,138,60,0.5)');
+    grad.addColorStop(1,    'rgba(255,106,26,0)');
+  }
   c.fillStyle = grad;
-  c.beginPath(); c.arc(cx, cy, R, 0, Math.PI*2); c.fill();
-})();
+  c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.fill();
+  return canvas;
+}
+const GLOW_SPRITE_SIZES = [4, 8, 16, 32, 64, 128];
+const glowSprites = {}, glowSpritesHard = {};
+GLOW_SPRITE_SIZES.forEach(sz => {
+  glowSprites[sz] = makeGlowSprite(sz, false);
+  glowSpritesHard[sz] = makeGlowSprite(sz, true);
+});
+// Smallest pre-rendered sprite that's still >= the actual on-screen diameter
+// (in device pixels), so drawImage only ever has to downscale a little.
+function pickGlowSprite(targetDevicePx, hard) {
+  const table = hard ? glowSpritesHard : glowSprites;
+  for (const sz of GLOW_SPRITE_SIZES) {
+    if (sz >= targetDevicePx) return table[sz];
+  }
+  return table[GLOW_SPRITE_SIZES[GLOW_SPRITE_SIZES.length - 1]];
+}
 
 function resizeNightCanvas() {
   const [W, H] = getMapSize();
@@ -2352,7 +2658,12 @@ function drawNightCanvas() {
     if (!p) continue;
     const [cx, cy] = p;
     const glowR = dotR(city.pop) * 3.2;
-    nctx.drawImage(glowSprite, cx - glowR, cy - glowR, glowR * 2, glowR * 2);
+    // Actual on-screen size in device pixels, accounting for the current
+    // zoom (t.k) and pixel ratio (nightDPR) already baked into the canvas
+    // transform above — this is what pickGlowSprite needs to avoid an
+    // over-aggressive downscale.
+    const targetDevicePx = glowR * 2 * t.k * nightDPR;
+    nctx.drawImage(pickGlowSprite(targetDevicePx, S.dotSizeMode === 'tiny'), cx - glowR, cy - glowR, glowR * 2, glowR * 2);
   }
   nctx.restore();
 }
@@ -2409,10 +2720,12 @@ function onNightMouseMove(ev) {
       nightHoverId = dotId(city);
       drawNightCanvas();
       const isUSMode = currentRegion === 'usa';
+      const isJPMode = currentRegion === 'japan';
       const _cs = US_STATE_CAPITALS.get(city.name.toLowerCase());
       const isSC = isUSMode && _cs !== undefined && (city.admin1||'').toUpperCase() === _cs;
-      const isCap = (city.isCapital && !isUSMode && UN_COUNTRIES.has(city.country)) || isSC;
-      const starHtml = isCap ? ` <span title="${isSC?'State capital':'Capital'}" style="color:var(--text)">★</span>` : '';
+      const isPC = isJPMode && isJPPrefCapital(city);
+      const isCap = (city.isCapital && !isUSMode && !isJPMode && UN_COUNTRIES.has(city.country)) || isSC || isPC;
+      const starHtml = isCap ? ` <span title="${isSC?'State capital':(isPC?'Prefecture capital':'Capital')}" style="color:var(--text)">★</span>` : '';
       tooltip.innerHTML = `<strong>${displayName(city)}${city.pop?` <span class="fi-pop">(${fmtPop(city.pop)})</span>`:''}${starHtml}</strong><br>${fmtLocation(city)}`;
     }
     tooltip.style.display = 'block';
@@ -2488,17 +2801,38 @@ function addDot(city) {
   const mapEl = document.getElementById('map');
   const id = dotId(city);
   const dg = svg.select('#map-g').append('g').attr('class','city-dot').attr('id',id);
+
+  const onOver = () => { tooltip.style.display='block'; const isUSMode=currentRegion==='usa'; const isJPMode=currentRegion==='japan'; const _cs=US_STATE_CAPITALS.get(city.name.toLowerCase()); const isSC=isUSMode&&_cs!==undefined&&(city.admin1||'').toUpperCase()===_cs; const isPC=isJPMode&&isJPPrefCapital(city); const isCap=(city.isCapital&&!isUSMode&&!isJPMode&&UN_COUNTRIES.has(city.country))||isSC||isPC; const starHtml=isCap?` <span title="${isSC?'State capital':(isPC?'Prefecture capital':'Capital')}" style="color:var(--text)">★</span>`:''; tooltip.style.display='block'; tooltip.innerHTML=`<strong>${displayName(city)}${city.pop?` <span class="fi-pop">(${fmtPop(city.pop)})</span>`:''}${starHtml}</strong><br>${fmtLocation(city)}`; };
+  const onMove = ev => { const rc=mapEl.getBoundingClientRect(); tooltip.style.left=(ev.clientX-rc.left+14)+'px'; tooltip.style.top=(ev.clientY-rc.top-46)+'px'; };
+  const onOut = () => tooltip.style.display='none';
+  const onClick = () => { tooltip.style.display='none'; highlightCity(city); };
+
   dg.append('circle')
+    .attr('class','main-dot')
     .attr('cx',cx).attr('cy',cy).attr('r', dotR(city.pop))
     .attr('data-pop', city.pop||0)
     .attr('fill', dotFill()).attr('fill-opacity', dotFillOpacity())
     .attr('stroke', dotStroke()).attr('stroke-width', dotStrokeWidth(city.pop))
     .attr('filter', dotFilter())
     .style('cursor','pointer')
-    .on('mouseover', ()=>{ tooltip.style.display='block'; const isUSMode=currentRegion==='usa'; const _cs=US_STATE_CAPITALS.get(city.name.toLowerCase()); const isSC=isUSMode&&_cs!==undefined&&(city.admin1||'').toUpperCase()===_cs; const isCap=(city.isCapital&&!isUSMode&&UN_COUNTRIES.has(city.country))||isSC; const starHtml=isCap?` <span title="${isSC?'State capital':'Capital'}" style="color:var(--text)">★</span>`:''; tooltip.style.display='block'; tooltip.innerHTML=`<strong>${displayName(city)}${city.pop?` <span class="fi-pop">(${fmtPop(city.pop)})</span>`:''}${starHtml}</strong><br>${fmtLocation(city)}`; })
-    .on('mousemove', ev=>{ const rc=mapEl.getBoundingClientRect(); tooltip.style.left=(ev.clientX-rc.left+14)+'px'; tooltip.style.top=(ev.clientY-rc.top-46)+'px'; })
-    .on('mouseout', ()=>tooltip.style.display='none')
-    .on('click', ()=>{ tooltip.style.display='none'; highlightCity(city); });
+    .on('mouseover', onOver).on('mousemove', onMove).on('mouseout', onOut).on('click', onClick);
+
+  // Pin-mode markup — always built alongside the flat circle (hidden via CSS
+  // unless body.pin-mode is set) so toggling the mode needs no rebuild.
+  const pg = dg.append('g').attr('class','pin-group');
+  pg.append('ellipse').attr('class','pin-shadow').attr('fill','rgba(0,0,0,.25)');
+  pg.append('line').attr('class','pin-shaft').attr('stroke-linecap','round');
+  pg.append('circle').attr('class','pin-ball')
+    .on('mouseover', onOver).on('mousemove', onMove).on('mouseout', onOut).on('click', onClick);
+  pg.append('ellipse').attr('class','pin-gloss').attr('fill','#fff').attr('opacity',0.55);
+  applyPinGeom(pg, cx, cy, city.pop);
+  // Each pin gets a random one of the 4 fixed colours the moment it's placed
+  // (equal odds each). The choice is stored on the city itself so it stays
+  // the same if the dot is later redrawn (region/resize change) or the
+  // session is reloaded, rather than reshuffling.
+  if (!city._pinColorKey) city._pinColorKey = randomPinColorKey();
+  pg.attr('data-pin-color', city._pinColorKey);
+  applyPinColorTo(pg);
 }
 
 function removeCity(city) {
@@ -2540,14 +2874,16 @@ function renderFoundGrid() {
     const id = dotId(city);
     const div = document.createElement('div');
     const isUSMode = currentRegion === 'usa';
+    const isJPMode = currentRegion === 'japan';
     const _capState = US_STATE_CAPITALS.get(city.name.toLowerCase());
     const isStateCapital = isUSMode && _capState !== undefined && (city.admin1 || '').toUpperCase() === _capState;
-    const isCapitalItem = (city.isCapital && !isUSMode && UN_COUNTRIES.has(city.country)) || isStateCapital;
+    const isPrefCapital = isJPMode && isJPPrefCapital(city);
+    const isCapitalItem = (city.isCapital && !isUSMode && !isJPMode && UN_COUNTRIES.has(city.country)) || isStateCapital || isPrefCapital;
     div.className='fi' + (isCapitalItem ? ' fi-is-capital' : '') + (id === _justAddedId ? ' fi-enter' : ''); div.id='card-'+id;
     div.style.cursor='pointer';
     div.title='Click to locate on map';
-    const capitalStar = (city.isCapital && !isUSMode && UN_COUNTRIES.has(city.country)) || isStateCapital
-      ? `<span class="fi-capital" title="${isStateCapital ? 'State capital' : 'Capital'}">★</span>` : '';
+    const capitalStar = isCapitalItem
+      ? `<span class="fi-capital" title="${isStateCapital ? 'State capital' : (isPrefCapital ? 'Prefecture capital' : 'Capital')}">★</span>` : '';
     const guessNum = found.indexOf(city) + 1;
     div.innerHTML=`<span class="fi-num">${guessNum}.</span><div class="fi-info"><span class="fi-name">${displayName(city)}${city.pop?` <span class="fi-pop">(${fmtPop(city.pop)})</span>`:''}${capitalStar}</span><span class="fi-meta">${fmtLocation(city)}</span></div><button class="rm" title="Remove">✕</button>`;
     div.querySelector('.rm').onclick = (e) => { e.stopPropagation(); removeCity(city); };
@@ -2589,8 +2925,22 @@ function renderEmptyFoundGrid(grid) {
 
 let bestListExpanded = false;
 
+// English display names for the 47 prefectures, keyed by the same admin1 id
+// used by JP_PREF_CAPITAL_NAMES — used for the "Top Prefectures" list/silhouettes.
+const JP_PREF_NAMES = {
+  1:'Hokkaido', 2:'Aomori', 3:'Iwate', 4:'Miyagi', 5:'Akita', 6:'Yamagata',
+  7:'Fukushima', 8:'Ibaraki', 9:'Tochigi', 10:'Gunma', 11:'Saitama',
+  12:'Chiba', 13:'Tokyo', 14:'Kanagawa', 15:'Niigata', 16:'Toyama',
+  17:'Ishikawa', 18:'Fukui', 19:'Yamanashi', 20:'Nagano', 21:'Gifu',
+  22:'Shizuoka', 23:'Aichi', 24:'Mie', 25:'Shiga', 26:'Kyoto', 27:'Osaka',
+  28:'Hyogo', 29:'Nara', 30:'Wakayama', 31:'Tottori', 32:'Shimane',
+  33:'Okayama', 34:'Hiroshima', 35:'Yamaguchi', 36:'Tokushima', 37:'Kagawa',
+  38:'Ehime', 39:'Kochi', 40:'Fukuoka', 41:'Saga', 42:'Nagasaki',
+  43:'Kumamoto', 44:'Oita', 45:'Miyazaki', 46:'Kagoshima', 47:'Okinawa',
+};
+
 function renderBestCountries() {
-  const isUSA = currentRegion === 'usa';
+  const mode = currentRegion === 'usa' ? 'usa' : currentRegion === 'japan' ? 'japan' : 'country';
   const listEl  = document.getElementById('bestList');
   const toggleBtn = document.getElementById('toggleBestListBtn');
 
@@ -2598,20 +2948,25 @@ function renderBestCountries() {
     listEl.innerHTML = '';
     listEl.style.display = 'none';
     if (toggleBtn) toggleBtn.style.display = 'none';
-    renderTopShapes([], isUSA);
+    renderTopShapes([], mode);
     return;
   }
 
-  // Count cities per country or state (keyed by code) — only consider cities relevant to current region
+  // Count cities per country/state/prefecture (keyed by code) — only consider cities relevant to current region
   const counts = {}; // code -> {name, count}
   found.forEach(city => {
     let code, name;
-    if (isUSA) {
+    if (mode === 'usa') {
       if (city.country !== 'US') return; // skip non-US cities in US mode
       code = (city.admin1 || '').toUpperCase();
       if (!code) return;
       const full = US_STATES[code];
       name = full ? full.replace(/\b\w/g, c => c.toUpperCase()) : code;
+    } else if (mode === 'japan') {
+      if (city.country !== 'JP') return; // skip non-Japan cities in Japan mode
+      code = normalizeJPAdmin1(city.admin1);
+      if (code == null) return;
+      name = JP_PREF_NAMES[code] || String(code);
     } else {
       code = city.country;
       name = fmtCountry(code);
@@ -2643,7 +2998,7 @@ function renderBestCountries() {
   }
   listEl.style.display = (bestListExpanded && rest.length) ? '' : 'none';
 
-  renderTopShapes(sorted.slice(0, 5), isUSA);
+  renderTopShapes(sorted.slice(0, 5), mode);
 }
 
 (function setupBestListToggle(){
@@ -2655,18 +3010,25 @@ function renderBestCountries() {
   });
 })();
 
-// ─── TOP COUNTRIES/STATES SILHOUETTE PANEL ───────────────────────────────────
-// Draws the top-5 best countries/states as little map-shape "silhouette" cards
-// in the space between the settings and found-cities columns.
-const shapeGeoCache = { countries: null, usStates: null };
+// ─── TOP COUNTRIES/STATES/PREFECTURES SILHOUETTE PANEL ───────────────────────
+// Draws the top-5 best countries/states/prefectures as little map-shape
+// "silhouette" cards in the space between the settings and found-cities columns.
+const shapeGeoCache = { countries: null, usStates: null, japanPrefs: null };
 
-async function getSilhouetteFeatures(isUSA) {
-  if (isUSA) {
+async function getSilhouetteFeatures(mode) {
+  if (mode === 'usa') {
     if (!shapeGeoCache.usStates) {
       const data = await getGeoData('us-states');
       shapeGeoCache.usStates = topojson.feature(data, data.objects.states).features;
     }
     return shapeGeoCache.usStates;
+  }
+  if (mode === 'japan') {
+    if (!shapeGeoCache.japanPrefs) {
+      const data = await getGeoData('japan-prefs');
+      shapeGeoCache.japanPrefs = topojson.feature(data, data.objects.japan).features;
+    }
+    return shapeGeoCache.japanPrefs;
   }
   if (!shapeGeoCache.countries) {
     const data = await getGeoData('50m');
@@ -2688,27 +3050,36 @@ function findStateShape(features, abbr) {
   return features.find(f => ((f.properties && f.properties.name) || '').toLowerCase() === fullName.toLowerCase()) || null;
 }
 
+function findPrefShape(features, prefId) {
+  return features.find(f => f.properties && Number(f.properties.id) === Number(prefId)) || null;
+}
+
+const SHAPE_MODE_LABELS = { usa: 'states', japan: 'prefectures', country: 'countries' };
+
 let shapeRenderToken = 0;
-async function renderTopShapes(top5, isUSA) {
+async function renderTopShapes(top5, mode) {
   const wrap = document.getElementById('topShapesList');
   const titleEl = document.getElementById('bestVisualTitle');
   if (!wrap) return;
-  if (titleEl) titleEl.textContent = isUSA ? 'Top States' : 'Top Countries';
+  const modeLabel = SHAPE_MODE_LABELS[mode] || SHAPE_MODE_LABELS.country;
+  if (titleEl) titleEl.textContent = 'Top ' + modeLabel.replace(/\b\w/g, c => c.toUpperCase());
 
   const token = ++shapeRenderToken;
   if (!top5.length) {
-    wrap.innerHTML = `<div class="shape-empty">Guess some cities to see your top ${isUSA ? 'states' : 'countries'} here</div>`;
+    wrap.innerHTML = `<div class="shape-empty">Guess some cities to see your top ${modeLabel} here</div>`;
     return;
   }
 
   let features = [];
-  try { features = await getSilhouetteFeatures(isUSA); } catch (e) { features = []; }
+  try { features = await getSilhouetteFeatures(mode); } catch (e) { features = []; }
   if (token !== shapeRenderToken) return; // a newer render started while we were loading
 
   wrap.innerHTML = '';
   const SZ = 112;
   top5.forEach((item, i) => {
-    const feature = isUSA ? findStateShape(features, item.code) : findCountryShape(features, item.code);
+    const feature = mode === 'usa' ? findStateShape(features, item.code)
+      : mode === 'japan' ? findPrefShape(features, item.code)
+      : findCountryShape(features, item.code);
     let iconHtml = '<div class="shape-fallback">🌐</div>';
     if (feature) {
       const proj = d3.geoMercator().fitSize([SZ - 8, SZ - 8], feature);
@@ -2762,6 +3133,7 @@ function renderOtherStats() {
   const el = document.getElementById('otherStatsList');
   if (!el) return;
   const isUSA = currentRegion === 'usa';
+  const isJapan = currentRegion === 'japan';
   const regionDef = REGIONS[currentRegion];
 
   // Filter cityDB to the current region
@@ -2798,6 +3170,18 @@ function renderOtherStats() {
     const gotCapitals = new Set(regionFound.filter(c => { const st=US_STATE_CAPITALS.get(c.name.toLowerCase()); return st!==undefined && (c.admin1||'').toUpperCase()===st; }).map(c => US_STATE_CAPITALS.get(c.name.toLowerCase()))).size;
     const pctCapitals = ((gotCapitals/totalCapitals)*100).toFixed(1);
     rows.push({ label: 'state capitals', got: gotCapitals, total: totalCapitals, pct: pctCapitals });
+  } else if (isJapan) {
+    // Prefecture capitals — a city only counts if its name matches the
+    // prefecture's seat AND it's actually filed under that prefecture's
+    // admin1 code (so e.g. a same-named town elsewhere doesn't count).
+    const totalCapitals = JP_PREF_CAPITAL_BY_NAME.size; // 47
+    const gotCapitals = new Set(
+      regionFound
+        .filter(c => JP_PREF_CAPITAL_BY_NAME.get(c.name.toLowerCase()) === normalizeJPAdmin1(c.admin1))
+        .map(c => normalizeJPAdmin1(c.admin1))
+    ).size;
+    const pctCapitals = ((gotCapitals/totalCapitals)*100).toFixed(1);
+    rows.push({ label: 'prefecture capitals', got: gotCapitals, total: totalCapitals, pct: pctCapitals });
   } else {
     // Countries
     const applicableUN = regionDef.countries ? regionDef.countries.filter(c => UN_COUNTRIES.has(c)) : [...UN_COUNTRIES];
@@ -2853,11 +3237,12 @@ let _highlightTimer = null;
 
 function highlightCity(city) {
   const id = dotId(city);
-  const circleEl = svg.select('#' + id + ' circle');
-  if (circleEl.empty()) return;
+  const targetEl = S.pinMode ? svg.select('#' + id + ' .pin-ball') : svg.select('#' + id + ' circle.main-dot');
+  if (targetEl.empty()) return;
 
   // Clear any previous highlight
   applyDotStyles();
+  applyPinStyles();
   svg.selectAll('.city-dot .pulse-ring').remove();
   svg.selectAll('.city-dot.force-visible').classed('force-visible', false);
   document.querySelectorAll('.fi.highlighted').forEach(el => el.classList.remove('highlighted'));
@@ -2874,12 +3259,16 @@ function highlightCity(city) {
   }
 
   // Highlight the dot in bright yellow
-  circleEl.attr('fill', '#facc15').attr('fill-opacity', 1).attr('stroke', '#b45309').attr('stroke-width', 1.5);
+  if (S.pinMode) {
+    targetEl.attr('fill', '#facc15');
+  } else {
+    targetEl.attr('fill', '#facc15').attr('fill-opacity', 1).attr('stroke', '#b45309').attr('stroke-width', 1.5);
+  }
 
   // Add a ripple pulse ring
-  const cx = +circleEl.attr('cx');
-  const cy = +circleEl.attr('cy');
-  const r  = +circleEl.attr('r');
+  const cx = +targetEl.attr('cx');
+  const cy = +targetEl.attr('cy');
+  const r  = +targetEl.attr('r');
   const group = svg.select('#' + id);
 
   // Recenter the map on this city (keeps the current zoom level, just pans)
@@ -2911,7 +3300,11 @@ function highlightCity(city) {
 
   // Restore original colour after 2.5s
   _highlightTimer = setTimeout(() => {
-    circleEl.attr('fill', dotFill()).attr('fill-opacity', dotFillOpacity()).attr('stroke', dotStroke()).attr('stroke-width', dotStrokeWidth(+circleEl.attr('data-pop'))).attr('filter', dotFilter());
+    if (S.pinMode) {
+      applyPinColorTo(svg.select('#' + id + ' .pin-group'));
+    } else {
+      targetEl.attr('fill', dotFill()).attr('fill-opacity', dotFillOpacity()).attr('stroke', dotStroke()).attr('stroke-width', dotStrokeWidth(+targetEl.attr('data-pop'))).attr('filter', dotFilter());
+    }
     svg.selectAll('.city-dot .pulse-ring').remove();
     if (nightHighlightId === id) {
       nightHighlightId = null;
@@ -2923,13 +3316,67 @@ function highlightCity(city) {
 }
 
 // ─── REGION BUTTONS ──────────────────────────────────────────────────────────
-const regionColors = { world:'#2B4C7E', europe:'#1565C0', north_america:'#6A1B9A', usa:'#B71C1C', south_america:'#2E7D32', africa:'#BF360C', asia:'#E65100', oceania:'#00695C' };
+const regionColors = { world:'#2B4C7E', europe:'#1565C0', north_america:'#6A1B9A', usa:'#B71C1C', japan:'#AD1457', south_america:'#2E7D32', africa:'#BF360C', asia:'#E65100', oceania:'#00695C' };
 
 function tintRegionSelect(rk) {
   const sel = document.getElementById('regionSelect');
   if (!sel) return;
   sel.value = rk;
+  // Keep the map-picker button in the session bar in sync
+  const lbl = document.getElementById('mapPickLabel');
+  const dot = document.getElementById('mapPickDot');
+  const opt = sel.querySelector('option[value="' + rk + '"]');
+  if (lbl) lbl.textContent = (opt && opt.textContent) || (REGIONS[rk] && REGIONS[rk].label) || rk;
+  if (dot) dot.style.background = regionColors[rk] || '#2B4C7E';
+  document.querySelectorAll('#mapList .map-opt').forEach(b => {
+    const on = b.dataset.region === rk;
+    b.classList.toggle('current', on);
+    const chk = b.querySelector('.map-opt-check');
+    if (chk) chk.textContent = on ? '✓' : '';
+  });
 }
+
+// ─── MAP SELECTION MODAL ─────────────────────────────────────────────────────
+// Built from the (hidden) #regionSelect so the two can never drift apart.
+function buildMapList() {
+  const list = document.getElementById('mapList');
+  const sel = document.getElementById('regionSelect');
+  if (!list || !sel || list.dataset.built) return;
+  sel.querySelectorAll('optgroup').forEach(og => {
+    const group = document.createElement('div');
+    group.className = 'map-group';
+    const title = document.createElement('div');
+    title.className = 'map-group-title';
+    title.textContent = og.label;
+    const grid = document.createElement('div');
+    grid.className = 'map-grid';
+    og.querySelectorAll('option').forEach(o => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'map-opt';
+      btn.dataset.region = o.value;
+      btn.innerHTML = `<span class="map-opt-dot" style="background:${regionColors[o.value] || '#2B4C7E'}"></span><span>${o.textContent}</span><span class="map-opt-check"></span>`;
+      btn.onclick = () => { closeMapModal(); if (o.value !== currentRegion) setRegion(o.value); };
+      grid.appendChild(btn);
+    });
+    group.appendChild(title);
+    group.appendChild(grid);
+    list.appendChild(group);
+  });
+  list.dataset.built = '1';
+}
+
+function openMapModal() {
+  buildMapList();
+  tintRegionSelect(document.getElementById('regionSelect').value || currentRegion);
+  document.getElementById('mapModal').classList.add('open');
+}
+function closeMapModal() { document.getElementById('mapModal').classList.remove('open'); }
+
+document.getElementById('mapPickBtn').onclick = e => { e.stopPropagation(); openMapModal(); };
+document.getElementById('mapClose').onclick = closeMapModal;
+document.getElementById('mapModal').onclick = e => { if (e.target.id === 'mapModal') closeMapModal(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMapModal(); });
 
 function setRegion(rk) {
   // Save current region's cities before switching
@@ -2975,41 +3422,114 @@ document.getElementById('zoomIn').onclick = ()=>zoomBehavior.scaleBy(svg.transit
 document.getElementById('zoomOut').onclick = ()=>zoomBehavior.scaleBy(svg.transition().duration(250), 0.625);
 document.getElementById('resetViewBtn').onclick = ()=>{ currentTransform=d3.zoomIdentity; svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity); };
 
-// ─── MAP COLOURS POPOVER (button above the zoom %) ──────────────────────────
+// ─── MAP COLOURS / DOT APPEARANCE POPOVERS (stacked buttons above the zoom %) ─
+function closeMapPopovers(except) {
+  ['mapColorsPopover','dotAppearancePopover'].forEach(popId => {
+    if (popId === except) return;
+    document.getElementById(popId).classList.remove('open');
+  });
+  ['mapColorsBtn','dotAppearanceBtn'].forEach(btnId => {
+    if (btnId === except) return;
+    document.getElementById(btnId).classList.remove('active');
+  });
+}
 document.getElementById('mapColorsBtn').onclick = (e) => {
   e.stopPropagation();
-  document.getElementById('mapColorsPopover').classList.toggle('open');
-  document.getElementById('mapColorsBtn').classList.toggle('active');
+  const isOpen = document.getElementById('mapColorsPopover').classList.contains('open');
+  closeMapPopovers();
+  if (!isOpen) {
+    document.getElementById('mapColorsPopover').classList.add('open');
+    document.getElementById('mapColorsBtn').classList.add('active');
+  }
+};
+document.getElementById('dotAppearanceBtn').onclick = (e) => {
+  e.stopPropagation();
+  const isOpen = document.getElementById('dotAppearancePopover').classList.contains('open');
+  closeMapPopovers();
+  if (!isOpen) {
+    document.getElementById('dotAppearancePopover').classList.add('open');
+    document.getElementById('dotAppearanceBtn').classList.add('active');
+  }
 };
 document.getElementById('mapColorsPopover').addEventListener('click', e => e.stopPropagation());
-document.addEventListener('click', () => {
-  document.getElementById('mapColorsPopover').classList.remove('open');
-  document.getElementById('mapColorsBtn').classList.remove('active');
-});
+document.getElementById('dotAppearancePopover').addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => closeMapPopovers());
 
-document.querySelectorAll('input[name="cmode"]').forEach(r=>{
-  r.onchange=()=>{ S.countryMode=r.value; document.getElementById('countrySelect').disabled=(r.value!=='specific'); };
-});
+// ─── COUNTRY FILTER (lives inside the typing bar) ────────────────────────────
+// One dropdown covers all three modes: "Any country", "Every country", and a
+// specific country (values prefixed with "c:" so they can't collide with modes).
+function populateCountryFilterOptions() {
+  const list = document.getElementById('cfCountryList');
+  if (!list) return;
+  if (!countriesList.length) { list.innerHTML = '<div class="cf-empty">— load data first —</div>'; return; }
+  const frag = document.createDocumentFragment();
+  countriesList.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cf-opt';
+    b.dataset.val = 'c:' + c;
+    b.textContent = fmtCountry(c);
+    frag.appendChild(b);
+  });
+  list.innerHTML = '';
+  list.appendChild(frag);
+}
+
+function syncCountryFilterUI() {
+  const btn = document.getElementById('countryFilterBtn');
+  const panel = document.getElementById('countryFilterPanel');
+  if (!btn || !panel) return;
+  const mode = S.countryMode || 'any';
+  const val = (mode === 'specific' && S.specificCountry) ? 'c:' + S.specificCountry : mode;
+  let label = mode === 'every' ? 'Every country' : 'Any country';
+  panel.querySelectorAll('.cf-opt').forEach(o => {
+    const on = o.dataset.val === val;
+    o.classList.toggle('active', on);
+    if (on) label = o.textContent;
+  });
+  document.getElementById('cfBtnLabel').textContent = label;
+  btn.classList.toggle('filtering', val !== 'any');
+}
+
+function closeCountryFilterPanel() {
+  document.getElementById('countryFilterPanel').classList.remove('open');
+}
+
+document.getElementById('countryFilterBtn').onclick = e => {
+  e.stopPropagation();
+  const panel = document.getElementById('countryFilterPanel');
+  const opening = !panel.classList.contains('open');
+  panel.classList.toggle('open', opening);
+  // Scroll the current choice into view when opening the (deliberately short) list
+  if (opening) { const act = panel.querySelector('.cf-opt.active'); if (act) act.scrollIntoView({block:'nearest'}); }
+};
+
+document.getElementById('countryFilterPanel').onclick = e => {
+  e.stopPropagation();
+  const opt = e.target.closest('.cf-opt');
+  if (!opt) return;
+  const v = opt.dataset.val;
+  if (v.startsWith('c:')) { S.countryMode = 'specific'; S.specificCountry = v.slice(2); }
+  else { S.countryMode = v; }
+  closeCountryFilterPanel();
+  syncCountryFilterUI();
+  persistSession();
+};
+
+document.addEventListener('click', closeCountryFilterPanel);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCountryFilterPanel(); });
+
 document.getElementById('sortByPop').onchange=e=>{
   sortByPop=e.target.checked;
   renderFoundGrid();
   renderBestCountries();
   renderOtherStats();
 };
-document.getElementById('countrySelect').onchange=e=>{
-  S.specificCountry=e.target.value;
-  // Auto-switch to specific mode when user picks a country
-  const radio = document.querySelector('input[name="cmode"][value="specific"]');
-  radio.checked = true;
-  S.countryMode = 'specific';
-  document.getElementById('countrySelect').disabled = false;
-};
-
 
 document.getElementById('dotColor').oninput=e=>{ S.dotColor=e.target.value; applyDotStyles(); persistSession(); };
 document.getElementById('dotAlpha').oninput=e=>{ S.dotAlpha=parseInt(e.target.value)/100; document.getElementById('dotAlphaVal').textContent=e.target.value+'%'; applyDotStyles(); drawNightCanvas(); };
 
-function refreshDotSizes() { svg.selectAll('.city-dot circle').each(function(){ const pop = +d3.select(this).attr('data-pop'); d3.select(this).attr('r', dotR(pop)).attr('stroke-width', dotStrokeWidth(pop)); }); drawNightCanvas(); }
+function refreshDotSizes() { svg.selectAll('.city-dot circle.main-dot').each(function(){ const pop = +d3.select(this).attr('data-pop'); d3.select(this).attr('r', dotR(pop)).attr('stroke-width', dotStrokeWidth(pop)); }); refreshPinGeom(); drawNightCanvas(); }
 function setDotSizeMode(mode) {
   const cfg = DOT_SIZE_MODES[mode];
   if (!cfg) return;
@@ -3032,6 +3552,8 @@ function applyMapColors() {
   svg.select('#borders-path').attr('stroke', borderStroke);
   svg.select('#state-borders').attr('stroke', borderStroke);
   svg.select('#nation-border').attr('stroke', borderStroke);
+  svg.select('#pref-borders').attr('stroke', borderStroke);
+  svg.select('#nation-border-jp').attr('stroke', borderStroke);
   svg.select('#sphere').attr('fill', S.physicalMode ? 'none' : S.seaColor);
   document.getElementById('mapWrap').style.background = S.physicalMode ? '#05070c' : S.seaColor;
 }
@@ -3039,7 +3561,7 @@ function applyMapColors() {
 // Re-apply fill/stroke/glow to every existing dot from the current S settings.
 // Shared by the dot colour/alpha pickers and Night mode.
 function applyDotStyles() {
-  svg.selectAll('.city-dot circle')
+  svg.selectAll('.city-dot circle.main-dot')
     .attr('fill', dotFill()).attr('fill-opacity', dotFillOpacity())
     .attr('stroke', dotStroke())
     .attr('stroke-width', function() { return dotStrokeWidth(+d3.select(this).attr('data-pop')); })
@@ -3053,6 +3575,7 @@ document.getElementById('borderColor').oninput=e=>{ S.borderColor=e.target.value
 document.getElementById('nightMode').onchange = e => {
   S.nightMode = e.target.checked;
   document.body.classList.toggle('night-mode', S.nightMode);
+  if (S.nightMode && S.pinMode) setPinMode(false); // map must be "normal" in Pin mode — mutually exclusive
 
   if (S.nightMode) {
     // Remember the current palette so switching Night mode back off restores it
@@ -3119,11 +3642,30 @@ document.getElementById('resetMapColors').onclick = () => {
 
 document.getElementById('physicalMode').onchange = async e => {
   S.physicalMode = e.target.checked;
+  if (S.physicalMode && S.pinMode) setPinMode(false); // map must be "normal" in Pin mode — mutually exclusive
   const g = svg.select('#map-g');
   const [W, H] = getMapSize();
   await updatePhysicalLayer(g, W, H);
   persistSession();
 };
+
+// Pin mode: dots render as 3D-style pins in one of 4 fixed colours instead of
+// flat circles. Mutually exclusive with Night/Physical mode, since the point
+// is a "normal" map — enabling it switches those off first (and reverts any
+// palette Night mode had swapped in).
+function setPinMode(on) {
+  S.pinMode = on;
+  document.getElementById('pinMode').checked = on;
+  document.body.classList.toggle('pin-mode', on);
+  document.getElementById('dotColorRow').style.display = on ? 'none' : '';
+  if (on) {
+    if (S.nightMode) { document.getElementById('nightMode').checked = false; document.getElementById('nightMode').dispatchEvent(new Event('change')); }
+    if (S.physicalMode) { document.getElementById('physicalMode').checked = false; document.getElementById('physicalMode').dispatchEvent(new Event('change')); }
+  }
+  applyPinStyles();
+  persistSession();
+}
+document.getElementById('pinMode').onchange = e => setPinMode(e.target.checked);
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function fmtPop(n){ if(!n)return''; return Math.round(n).toLocaleString('de-DE'); }
@@ -3148,6 +3690,19 @@ const ADMIN1_NAMES = {"AD.06":"Sant Julià de Loria","AD.05":"Ordino","AD.04":"L
 // Convert ISO-2 country code to full display name (for GeoNames-loaded data)
 const ISO_TO_NAME = {"AF": "Afghanistan", "AL": "Albania", "DZ": "Algeria", "AO": "Angola", "AR": "Argentina", "AM": "Armenia", "AU": "Australia", "AT": "Austria", "AZ": "Azerbaijan", "BS": "Bahamas", "BH": "Bahrain", "BD": "Bangladesh", "BY": "Belarus", "BE": "Belgium", "BZ": "Belize", "BJ": "Benin", "BO": "Bolivia", "BA": "Bosnia and Herzegovina", "BW": "Botswana", "BR": "Brazil", "BG": "Bulgaria", "BF": "Burkina Faso", "KH": "Cambodia", "CM": "Cameroon", "CA": "Canada", "CF": "Central African Republic", "TD": "Chad", "CL": "Chile", "CN": "China", "CO": "Colombia", "CG": "Republic of the Congo", "CD": "Democratic Republic of the Congo", "CR": "Costa Rica", "HR": "Croatia", "CU": "Cuba", "CY": "Cyprus", "CZ": "Czech Republic", "DK": "Denmark", "DO": "Dominican Republic", "EC": "Ecuador", "EG": "Egypt", "SV": "El Salvador", "ER": "Eritrea", "EE": "Estonia", "ET": "Ethiopia", "FI": "Finland", "FR": "France", "GA": "Gabon", "GE": "Georgia", "DE": "Germany", "GH": "Ghana", "GR": "Greece", "GT": "Guatemala", "GN": "Guinea", "HT": "Haiti", "HN": "Honduras", "HU": "Hungary", "IS": "Iceland", "IN": "India", "ID": "Indonesia", "IR": "Iran", "IQ": "Iraq", "IE": "Ireland", "IL": "Israel", "IT": "Italy", "CI": "Ivory Coast", "JM": "Jamaica", "JP": "Japan", "JO": "Jordan", "KZ": "Kazakhstan", "KE": "Kenya", "KW": "Kuwait", "KG": "Kyrgyzstan", "LA": "Laos", "LV": "Latvia", "LB": "Lebanon", "LY": "Libya", "LT": "Lithuania", "LU": "Luxembourg", "MG": "Madagascar", "MW": "Malawi", "MY": "Malaysia", "ML": "Mali", "MT": "Malta", "MR": "Mauritania", "MX": "Mexico", "MD": "Moldova", "MN": "Mongolia", "MA": "Morocco", "MZ": "Mozambique", "MM": "Myanmar", "NA": "Namibia", "NP": "Nepal", "NL": "Netherlands", "NZ": "New Zealand", "NI": "Nicaragua", "NE": "Niger", "NG": "Nigeria", "NO": "Norway", "OM": "Oman", "PK": "Pakistan", "PA": "Panama", "PY": "Paraguay", "PE": "Peru", "PH": "Philippines", "PL": "Poland", "PT": "Portugal", "QA": "Qatar", "RO": "Romania", "RU": "Russia", "RW": "Rwanda", "SA": "Saudi Arabia", "SN": "Senegal", "RS": "Serbia", "SL": "Sierra Leone", "SG": "Singapore", "SK": "Slovakia", "SI": "Slovenia", "SO": "Somalia", "ZA": "South Africa", "SS": "South Sudan", "ES": "Spain", "LK": "Sri Lanka", "SD": "Sudan", "SE": "Sweden", "CH": "Switzerland", "SY": "Syria", "TW": "Taiwan", "TJ": "Tajikistan", "TZ": "Tanzania", "TH": "Thailand", "TG": "Togo", "TN": "Tunisia", "TR": "Turkey", "TM": "Turkmenistan", "UG": "Uganda", "UA": "Ukraine", "AE": "United Arab Emirates", "GB": "United Kingdom", "US": "United States", "UY": "Uruguay", "UZ": "Uzbekistan", "VE": "Venezuela", "VN": "Vietnam", "YE": "Yemen", "ZM": "Zambia", "ZW": "Zimbabwe", "FJ": "Fiji", "FM": "Micronesia", "PW": "Palau", "MH": "Marshall Islands", "NR": "Nauru", "TV": "Tuvalu", "TO": "Tonga", "WS": "Samoa", "VU": "Vanuatu", "SB": "Solomon Islands", "KI": "Kiribati", "PG": "Papua New Guinea", "TL": "Timor-Leste", "BN": "Brunei", "MV": "Maldives", "BT": "Bhutan", "SC": "Seychelles", "MU": "Mauritius", "CV": "Cape Verde", "ST": "São Tomé and Príncipe", "DJ": "Djibouti", "KM": "Comoros", "BI": "Burundi", "LS": "Lesotho", "SZ": "Eswatini", "GM": "Gambia", "GW": "Guinea-Bissau", "GQ": "Equatorial Guinea", "LR": "Liberia", "ME": "Montenegro", "MK": "North Macedonia", "XK": "Kosovo", "LI": "Liechtenstein", "AD": "Andorra", "MC": "Monaco", "SM": "San Marino", "VA": "Vatican", "CW": "Curaçao", "AW": "Aruba", "SR": "Suriname", "GY": "Guyana", "TT": "Trinidad and Tobago", "BB": "Barbados", "LC": "Saint Lucia", "VC": "Saint Vincent and the Grenadines", "GD": "Grenada", "AG": "Antigua and Barbuda", "DM": "Dominica", "KN": "Saint Kitts and Nevis", "EH": "Western Sahara", "PF": "French Polynesia", "NC": "New Caledonia", "GU": "Guam", "PR": "Puerto Rico", "VI": "US Virgin Islands", "GP": "Guadeloupe", "MQ": "Martinique", "RE": "Réunion", "YT": "Mayotte", "PM": "Saint Pierre and Miquelon", "KP": "North Korea", "KR": "South Korea", "PS": "Palestine", "GF": "French Guiana", "HK": "Hong Kong", "MO": "Macao", "AI": "Anguilla", "AS": "American Samoa", "AX": "Åland Islands", "BL": "Saint Barthélemy", "BM": "Bermuda", "BQ": "Caribbean Netherlands", "CC": "Cocos Islands", "CK": "Cook Islands", "CX": "Christmas Island", "FK": "Falkland Islands", "FO": "Faroe Islands", "GG": "Guernsey", "GI": "Gibraltar", "GL": "Greenland", "GS": "South Georgia", "IM": "Isle of Man", "JE": "Jersey", "KY": "Cayman Islands", "MF": "Saint Martin", "MP": "Northern Mariana Islands", "MS": "Montserrat", "NF": "Norfolk Island", "NU": "Niue", "PN": "Pitcairn Islands", "SH": "Saint Helena", "SJ": "Svalbard and Jan Mayen", "SX": "Sint Maarten", "TC": "Turks and Caicos Islands", "TF": "French Southern Territories", "VG": "British Virgin Islands", "WF": "Wallis and Futuna"};
 function fmtCountry(c) { return ISO_TO_NAME[c] || c; }
+
+// Big centered banner shown for 5s whenever the Japan map is loaded.
+let _japanLoveTimer;
+function showJapanLoveMessage() {
+  let el = document.getElementById('japanLoveMsg');
+  if (el) el.remove(); // restart the animation if it's somehow still showing
+  el = document.createElement('div');
+  el.id = 'japanLoveMsg';
+  el.innerHTML = '<span class="jlm-text">I LOVE YOU NASTYA</span><span class="jlm-heart">❤️</span>';
+  document.body.appendChild(el);
+  clearTimeout(_japanLoveTimer);
+  _japanLoveTimer = setTimeout(() => { el.remove(); }, 5000);
+}
 let _msgTimer;
 function setMsg(text,cls){
   const el=document.getElementById('msg');
@@ -3220,11 +3775,13 @@ async function restoreState(snap) {
   document.getElementById('nightMode').checked  = !!S.nightMode;
   document.getElementById('physicalMode').checked = !!S.physicalMode;
   document.body.classList.toggle('night-mode', !!S.nightMode);
+  document.getElementById('pinMode').checked = !!S.pinMode;
+  document.body.classList.toggle('pin-mode', !!S.pinMode);
+  document.getElementById('dotColorRow').style.display = S.pinMode ? 'none' : '';
+  applyPinStyles();
 
   // Sync country filter UI
-  const cmodeRadio = document.querySelector('input[name="cmode"][value="' + (S.countryMode || 'any') + '"]');
-  if (cmodeRadio) cmodeRadio.checked = true;
-  document.getElementById('countrySelect').disabled = (S.countryMode !== 'specific');
+  syncCountryFilterUI();
 
   // Restore region dropdown
   const region = snap.region || 'world';
@@ -3682,8 +4239,8 @@ function updateMissedBtn() {
 }
 
 function buildMissedModal() {
-  const isWorld = currentRegion === 'world';
   const isUSA   = currentRegion === 'usa';
+  const isJapan = currentRegion === 'japan';
   const regionDef = REGIONS[currentRegion];
   const foundIds  = new Set(found.map(c => dotId(c)));
 
@@ -3695,51 +4252,50 @@ function buildMissedModal() {
 
   const sections = [];
 
-  if (!isUSA) {
-    // Missing countries
-    const foundCountries = new Set(found.map(c => c.country));
-    const applicableUN   = regionDef.countries
-      ? regionDef.countries.filter(c => UN_COUNTRIES.has(c))
-      : [...UN_COUNTRIES];
-    const missedCountries = applicableUN
-      .filter(cc => !foundCountries.has(cc))
-      .map(cc => {
-        // Get display name from ISO_ALIASES or just the code
-        const aliases = ISO_ALIASES[cc];
-        const name = aliases ? aliases[0].replace(/\b\w/g, l => l.toUpperCase()) : cc;
-        return { cc, name };
-      })
-      .sort((a,b) => a.name.localeCompare(b.name));
-
-    if (missedCountries.length) {
+  // Population thresholds — same three tiers shown in the stats panel, for
+  // every map (not just World).
+  for (const [thresh, label] of [[1_000_000,'1,000,000'], [500_000,'500,000'], [100_000,'100,000']]) {
+    const missedAtThresh = cityDB
+      .filter(c => (c.pop||0) >= thresh && inRegion(c) && !wasFound(c))
+      .sort((a,b) => b.pop - a.pop);
+    if (missedAtThresh.length) {
       sections.push({
-        title: `Missing countries (${missedCountries.length})`,
-        chips: missedCountries.map(m => ({ label: m.name, cls: 'country' })),
-      });
-    }
-
-    // Missing capitals
-    const missedCapitals = cityDB
-      .filter(c => c.isCapital && UN_COUNTRIES.has(c.country) && inRegion(c) && !wasFound(c))
-      .sort((a,b) => a.name.localeCompare(b.name));
-    if (missedCapitals.length) {
-      sections.push({
-        title: `Missing capitals (${missedCapitals.length})`,
-        chips: missedCapitals.map(c => ({ label: c.name, cls: 'capital' })),
+        title: `Missing cities over ${label} (${missedAtThresh.length})`,
+        chips: missedAtThresh.map(c => ({ label: `${c.name} (${fmtPop(c.pop)})`, cls: 'big' })),
       });
     }
   }
 
-  // Missing big cities — threshold depends on region
-  const thresh = isWorld ? 1_000_000 : 100_000;
-  const threshLabel = isWorld ? '1,000,000' : '100,000';
-  const missedBig = cityDB
-    .filter(c => (c.pop||0) >= thresh && inRegion(c) && !wasFound(c))
-    .sort((a,b) => b.pop - a.pop);
-  if (missedBig.length) {
+  // Capitals — what counts as one depends on the map: state capitals for the
+  // US map, prefecture capitals for the Japan map, national capitals
+  // everywhere else.
+  let missedCapitals = [];
+  if (isUSA) {
+    US_STATE_CAPITALS.forEach((abbr, cityNameLower) => {
+      const gotIt = found.some(c => c.name.toLowerCase() === cityNameLower && (c.admin1||'').toUpperCase() === abbr);
+      if (!gotIt) missedCapitals.push({ label: `${cityNameLower.replace(/\b\w/g, l => l.toUpperCase())} (${abbr})`, cls: 'capital' });
+    });
+    missedCapitals.sort((a,b) => a.label.localeCompare(b.label));
+  } else if (isJapan) {
+    Object.entries(JP_PREF_CAPITAL_NAMES).forEach(([jisId, cityNameLower]) => {
+      const id = Number(jisId);
+      const gotIt = found.some(c => c.name.toLowerCase() === cityNameLower && normalizeJPAdmin1(c.admin1) === id);
+      if (!gotIt) missedCapitals.push({ label: `${cityNameLower.replace(/\b\w/g, l => l.toUpperCase())} (${JP_PREF_NAMES[id]})`, cls: 'capital' });
+    });
+    missedCapitals.sort((a,b) => a.label.localeCompare(b.label));
+  } else {
+    const applicableUN = regionDef.countries
+      ? regionDef.countries.filter(c => UN_COUNTRIES.has(c))
+      : [...UN_COUNTRIES];
+    missedCapitals = cityDB
+      .filter(c => c.isCapital && applicableUN.includes(c.country) && inRegion(c) && !wasFound(c))
+      .sort((a,b) => a.name.localeCompare(b.name))
+      .map(c => ({ label: c.name, cls: 'capital' }));
+  }
+  if (missedCapitals.length) {
     sections.push({
-      title: `Missing cities over ${threshLabel} (${missedBig.length})`,
-      chips: missedBig.map(c => ({ label: `${c.name} (${fmtPop(c.pop)})`, cls: 'big' })),
+      title: `Missing capitals (${missedCapitals.length})`,
+      chips: missedCapitals,
     });
   }
 
@@ -3749,12 +4305,15 @@ function buildMissedModal() {
     body.innerHTML = '<p style="color:var(--success);font-weight:600;text-align:center;padding:20px">🎉 Nothing missed in these categories!</p>';
     return;
   }
+  // Each category is a native <details> disclosure, closed by default, so
+  // opening the modal never spoils what's still left to find — the user
+  // picks which category (if any) to reveal.
   sections.forEach(({ title, chips }) => {
-    const sec = document.createElement('div');
+    const sec = document.createElement('details');
     sec.className = 'missed-section';
-    const t = document.createElement('div');
-    t.className = 'missed-section-title';
-    t.textContent = title;
+    const summary = document.createElement('summary');
+    summary.className = 'missed-section-title';
+    summary.textContent = title;
     const grid = document.createElement('div');
     grid.className = 'missed-grid';
     chips.forEach(({ label, cls }) => {
@@ -3763,7 +4322,7 @@ function buildMissedModal() {
       chip.textContent = label;
       grid.appendChild(chip);
     });
-    sec.appendChild(t);
+    sec.appendChild(summary);
     sec.appendChild(grid);
     body.appendChild(sec);
   });
